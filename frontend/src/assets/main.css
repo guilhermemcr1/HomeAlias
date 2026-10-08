@@ -255,3 +255,53 @@
   }
   .btn svg { flex-shrink: 0; }
 }
+
+/* Login: grade de fundo com onda e entrada em cascata. */
+@layer components {
+  .ripple-grid {
+    display: grid;
+    width: max-content;
+    -webkit-mask-image: radial-gradient(ellipse 75% 85% at 50% 0%, #000 15%, transparent 75%);
+    mask-image: radial-gradient(ellipse 75% 85% at 50% 0%, #000 15%, transparent 75%);
+  }
+  .ripple-cell {
+    border: 0.5px solid theme('colors.base-300');
+    background-color: theme('colors.base-100');
+    opacity: 0.4;
+    transition: opacity 0.15s;
+    will-change: transform;
+  }
+  .ripple-cell:hover {
+    opacity: 0.8;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .ripple-cell.is-rippling {
+    animation: cell-ripple var(--duration, 300ms) ease-out var(--delay, 0ms) 1;
+  }
+  @keyframes cell-ripple {
+    0% {
+      opacity: 0.4;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(0.94);
+    }
+    100% {
+      opacity: 0.4;
+      transform: scale(1);
+    }
+  }
+  .rise {
+    animation: rise 0.7s cubic-bezier(0.16, 1, 0.3, 1) both;
+    animation-delay: var(--d, 0ms);
+  }
+  @keyframes rise {
+    from {
+      opacity: 0;
+      transform: translateY(14px);
+      filter: blur(4px);
+    }
+  }
+}

@@ -6,6 +6,7 @@ import * as v from '../composables/validation'
 import { focusFirstInvalid } from '../composables/formFocus'
 import { ApiError } from '../api/client'
 import FormField from '../components/FormField.vue'
+import CanvasText from '../components/ui/CanvasText.vue'
 import { useAuth } from '../composables/useAuth'
 
 const email = ref('')
@@ -53,8 +54,16 @@ async function submit() {
 
 <template>
   <div>
-    <h1 class="page-title">Entrar</h1>
-    <p class="mt-1.5 mb-8 text-base-content/70">Acesse o painel do seu DDNS.</p>
+    <h1 class="mb-8 text-center text-3xl font-extrabold leading-tight tracking-tight">
+      <span class="block text-base-content/70 text-lg font-semibold">Bem-vindo ao</span>
+      <CanvasText
+        text="HomeAlias"
+        class="mt-1"
+        :colors="['rgba(141,199,255,1)', 'rgba(141,199,255,0.85)', 'rgba(141,199,255,0.7)', 'rgba(141,199,255,0.55)', 'rgba(141,199,255,0.4)', 'rgba(141,199,255,0.25)', 'rgba(141,199,255,0.12)']"
+        :line-gap="4"
+        :animation-duration="12"
+      />
+    </h1>
     <form ref="formElement" :aria-busy="busy" class="flex flex-col gap-5" novalidate @submit.prevent="submit">
       <FormField v-slot="{ id, describedBy, invalid }" label="E-mail" :error="attempted ? errs.email : ''">
         <input :id="id" v-model="email" type="email" inputmode="email" autocapitalize="none" spellcheck="false" class="input input-bordered w-full" placeholder="voce@exemplo.com" maxlength="254" autocomplete="username" :aria-invalid="invalid" :aria-describedby="describedBy" :disabled="busy" autofocus required />
@@ -101,8 +110,5 @@ async function submit() {
       </button>
       <span class="sr-only" role="status">{{ phase === 'checking' ? 'Verificando credenciais' : phase === 'success' ? 'Login confirmado, redirecionando' : '' }}</span>
     </form>
-    <p class="mt-8 text-sm text-base-content/65">
-      Não existe cadastro aberto. Peça a criação da sua conta ao administrador ou use o link de convite que ele enviou.
-    </p>
   </div>
 </template>
