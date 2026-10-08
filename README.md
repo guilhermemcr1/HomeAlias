@@ -60,6 +60,21 @@ Preencha o `deploy/.env` (chaves, admin e `DATABASE_DSN` com a senha do banco). 
 docker compose -f deploy/docker-compose.yml --env-file deploy/.env up -d --build
 ```
 
+Os containers usam nomes que identificam o projeto e sua função:
+
+- `homealias-api`: API e servidor do painel web.
+- `homealias-frontend-build`: gera os arquivos do painel; encerrar com código `0` indica sucesso.
+
+Após atualizar o Compose, o próximo `up` recria os containers com esses nomes e mantém o volume do frontend.
+
+As redes são atribuídas explicitamente: a API usa `network_mode: host` para acessar o MariaDB local, e o build usa a rede bridge `homealias-build-network`. Os dois containers usam DNS `1.1.1.1` e `1.0.0.1`; personalize com `HOMEALIAS_DNS_PRIMARY` e `HOMEALIAS_DNS_SECONDARY` em `deploy/.env` se precisar resolver nomes da sua rede local.
+
+Antes de aplicar alterações no deploy, valide o Compose:
+
+```bash
+docker compose -f deploy/docker-compose.yml --env-file deploy/.env config --quiet
+```
+
 O backend escuta só em `127.0.0.1:8080`. Aponte o cloudflared para `http://localhost:8080` (veja [`deploy/tunnel/README.md`](deploy/tunnel/README.md)). **Não** abra a porta 8080 no firewall nem no roteador.
 
 ### 4. Entrar
