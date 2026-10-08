@@ -1,0 +1,9 @@
+-- Execute como root no MariaDB do host, trocando a senha por uma forte (openssl rand -base64 24).
+-- O backend roda com network_mode: host e conecta em 127.0.0.1, então o usuário só precisa de 'localhost'/127.0.0.1.
+CREATE DATABASE IF NOT EXISTS homealias CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER IF NOT EXISTS 'homealias'@'127.0.0.1' IDENTIFIED BY 'TROQUE_POR_SENHA_FORTE';
+CREATE USER IF NOT EXISTS 'homealias'@'localhost' IDENTIFIED BY 'TROQUE_POR_SENHA_FORTE';
+GRANT SELECT, INSERT, UPDATE, DELETE ON homealias.* TO 'homealias'@'127.0.0.1';
+GRANT SELECT, INSERT, UPDATE, DELETE ON homealias.* TO 'homealias'@'localhost';
+FLUSH PRIVILEGES;
+-- Para importar o esquema use um usuário com CREATE (ex.: root): mariadb -u root -p homealias < deploy/sql/schema.sql

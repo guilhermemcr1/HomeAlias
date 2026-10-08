@@ -1,0 +1,5 @@
+DROP TABLE IF EXISTS update_events;
+DROP TABLE IF EXISTS token_hosts;
+DROP TABLE IF EXISTS ddns_tokens;
+DROP TABLE IF EXISTS hosts;
+DROP TABLE IF EXISTS connections;

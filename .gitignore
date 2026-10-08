@@ -1,0 +1,55 @@
+# Segredos e configuração local (mantenha apenas os *.example)
+.env
+.env.*
+!.env.example
+*.local
+
+# Dependências
+node_modules/
+
+# Build
+frontend/dist/
+frontend/*.tsbuildinfo
+*.tsbuildinfo
+bin/
+*.exe
+*.test
+*.out
+coverage/
+frontend/coverage/
+
+# Testes E2E (relatórios e capturas)
+frontend/test-results/
+frontend/playwright-report/
+frontend/e2e/*.png
+
+# Go
+vendor/
+go.work
+go.work.sum
+
+# Logs e temporários
+*.log
+npm-debug.log*
+*.tmp
+*.bak
+*.swp
+
+# Sistema e editores
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Material de concepção do projeto / ferramentas de IA (fora do repositório)
+specs/
+PRODUCT.md
+DESIGN.md
+.specify/
+.claude/
+CLAUDE.md
+AGENTS.md
+GEMINI.md
+.cursor/
+.cursorrules
+.github/copilot-instructions.md

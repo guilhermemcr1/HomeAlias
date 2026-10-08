@@ -1,0 +1,257 @@
+@import '@fontsource-variable/jetbrains-mono/wght.css';
+@import '@fontsource-variable/jetbrains-mono/wght-italic.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply bg-base-200;
+    font-size: 15px;
+    font-style: italic; /* tema "terminal": toda a interface em itálico */
+    font-family: theme('fontFamily.sans');
+    font-feature-settings: 'calt' 1, 'liga' 1;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    scrollbar-color: theme('colors.base-300') transparent;
+  }
+  body {
+    @apply bg-base-200 text-base-content;
+  }
+  ::selection {
+    background: theme('colors.primary');
+    color: theme('colors.primary-content');
+  }
+  /* No tema escuro o azul da marca fica abaixo de 4,5:1 sobre o fundo; foco, cursor e links usam o azul de destaque. */
+  [data-theme='homealias-dark'] .text-primary,
+  [data-theme='homealias-dark'] .link-primary {
+    color: theme('colors.secondary');
+  }
+  [data-theme='homealias-dark'] :focus-visible {
+    outline-color: theme('colors.secondary');
+  }
+  :focus-visible {
+    outline: 2px solid theme('colors.primary');
+    outline-offset: 2px;
+  }
+  input:focus-visible,
+  select:focus-visible,
+  textarea:focus-visible {
+    outline-offset: 0;
+  }
+  input,
+  textarea {
+    caret-color: theme('colors.primary');
+  }
+  a {
+    text-underline-offset: 3px;
+  }
+  h1,
+  h2,
+  h3 {
+    text-wrap: balance;
+  }
+}
+
+@layer components {
+  .font-data {
+    font-family: theme('fontFamily.mono');
+    font-variant-numeric: tabular-nums;
+    font-size: 0.875em;
+  }
+  .page-title {
+    font-family: theme('fontFamily.display');
+    font-weight: 800;
+    font-size: 1.5rem;
+    line-height: 1.2;
+    letter-spacing: -0.03em;
+  }
+  /* Prompt de terminal antes do título e cursor piscando depois. */
+  .page-title::before {
+    content: '$ ';
+    color: theme('colors.secondary');
+    font-weight: 500;
+  }
+  .page-title::after {
+    content: '';
+    display: inline-block;
+    width: 0.55em;
+    height: 1em;
+    margin-left: 0.2em;
+    vertical-align: -0.12em;
+    background: theme('colors.secondary');
+  }
+  .surface {
+    @apply rounded-box border border-base-300 bg-base-100;
+    border-top: 2px solid theme('colors.secondary');
+  }
+  .btn {
+    letter-spacing: -0.01em;
+  }
+  .badge, .tab, .menu li > * {
+    font-style: italic;
+  }
+  .btn {
+    min-height: 2.5rem;
+    @apply font-semibold normal-case;
+  }
+  .input,
+  .select {
+    min-height: 2.75rem;
+  }
+  .input:focus,
+  .select:focus {
+    outline-offset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .page-title::after {
+    animation: caret 1.1s steps(1) infinite;
+  }
+  @keyframes caret {
+    50% {
+      opacity: 0;
+    }
+  }
+  .enter {
+    animation: enter 0.22s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  @keyframes enter {
+    from {
+      opacity: 0;
+      transform: translateY(6px);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Troca de página: sai rápido, entra suave. */
+  .page-enter-active {
+    transition: opacity 0.24s cubic-bezier(0.16, 1, 0.3, 1), transform 0.24s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .page-leave-active {
+    transition: opacity 0.12s ease-in;
+  }
+  .page-enter-from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  .page-leave-to {
+    opacity: 0;
+  }
+
+  /* Menus e popovers. */
+  .pop-enter-active,
+  .pop-leave-active {
+    transition: opacity 0.15s ease, transform 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .pop-enter-from,
+  .pop-leave-to {
+    opacity: 0;
+    transform: translateY(6px) scale(0.97);
+  }
+
+  /* Avisos entram pela direita e os demais deslizam para ocupar o espaço. */
+  .toast-enter-active,
+  .toast-leave-active {
+    transition: opacity 0.22s ease, transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+  .toast-leave-active {
+    position: absolute;
+    inset-inline: 0;
+  }
+  .toast-enter-from,
+  .toast-leave-to {
+    opacity: 0;
+    transform: translateX(16px);
+  }
+  .toast-move {
+    transition: transform 0.22s ease;
+  }
+
+  /* Microinterações globais. */
+  .btn {
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease, transform 0.12s ease, box-shadow 0.15s ease;
+  }
+  .btn:not(:disabled):active {
+    transform: scale(0.97);
+  }
+  .surface {
+    animation: enter 0.28s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+
+  /* Login: o ícone de confirmação desenha o traço. */
+  .check-pop {
+    animation: check-pop 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+  }
+  .check-draw {
+    stroke-dasharray: 24;
+    stroke-dashoffset: 24;
+    animation: check-draw 0.35s 0.15s ease-out forwards;
+  }
+  @keyframes check-pop {
+    from {
+      opacity: 0;
+      transform: scale(0.4);
+    }
+  }
+  @keyframes check-draw {
+    to {
+      stroke-dashoffset: 0;
+    }
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .check-draw {
+    stroke-dasharray: none;
+  }
+}
+
+@layer base {
+  body { min-width: 320px; }
+  p, dd, h1, h2, h3 { overflow-wrap: anywhere; }
+  input, select, textarea { min-width: 0; }
+}
+
+@layer components {
+  .surface { min-width: 0; }
+  .modal-box {
+    max-height: calc(100dvh - 2rem);
+    overscroll-behavior: contain;
+    padding-bottom: max(1.5rem, env(safe-area-inset-bottom));
+  }
+  .modal-action { flex-wrap: wrap; }
+  .table td { overflow-wrap: anywhere; }
+  .input[aria-invalid='true'], .select[aria-invalid='true'] {
+    border-color: theme('colors.error');
+  }
+}
+
+@media (max-width: 639px) {
+  .input, .select, .textarea { font-size: 1rem; }
+  .btn, label:has(input[type='checkbox']) { min-height: 2.75rem; }
+  .btn-square { min-width: 2.75rem; }
+  .modal-action > .btn { flex: 1 1 auto; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+@layer components {
+  .btn {
+    max-width: 100%;
+    height: auto;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    padding-block: 0.5rem;
+  }
+  .btn svg { flex-shrink: 0; }
+}

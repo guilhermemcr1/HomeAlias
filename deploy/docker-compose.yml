@@ -1,0 +1,37 @@
+# O MariaDB é o instalado no host (importe deploy/sql/schema.sql). O backend usa a rede do host
+# para alcançar 127.0.0.1:3306 sem expor o banco, e escuta só em HOMEALIAS_BIND_IP:HOMEALIAS_PORT
+# (padrão 127.0.0.1:8080) — o Cloudflare Tunnel (cloudflared) aponta para http://localhost:8080.
+services:
+  backend:
+    build:
+      context: ../backend
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      - .env
+    depends_on:
+      frontend-build:
+        condition: service_completed_successfully
+    environment:
+      HTTP_ADDR: "${HOMEALIAS_BIND_IP:-127.0.0.1}:${HOMEALIAS_PORT:-8080}"
+      TRUST_CLOUDFLARE_HEADERS: "${TRUST_CLOUDFLARE_HEADERS:-true}"
+      COOKIE_SECURE: "${COOKIE_SECURE:-true}"
+      STATIC_DIR: "/static"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - frontend_dist:/static:ro
+
+  frontend-build:
+    image: node:22-alpine
+    working_dir: /app
+    volumes:
+      - ../frontend:/app
+      - frontend_dist:/out
+    command: sh -c "npm ci && npm run build && mkdir -p /out && cp -r dist/* /out/"
+
+volumes:
+  frontend_dist:
