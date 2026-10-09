@@ -3,6 +3,14 @@
 
 export type ClientConfig = { origin: string; hostname: string; token: string }
 
+/** Valida o modelo sem confundir o comentário <# do PowerShell com HTML. */
+export function isScriptTemplate(template: string, kind: 'sh' | 'ps1'): boolean {
+  const start = template.trimStart()
+  if (start.startsWith('<') && !(kind === 'ps1' && start.startsWith('<#'))) return false
+  return ['__HOMEALIAS_URL__', '__HOMEALIAS_TOKEN__', '__HOMEALIAS_HOSTNAME__']
+    .every((placeholder) => template.includes(placeholder))
+}
+
 /** Host sem esquema, como roteadores pedem no campo "Servidor". */
 export function serverHost(origin: string): string {
   return origin.replace(/^https?:\/\//, '')

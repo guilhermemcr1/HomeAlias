@@ -51,7 +51,7 @@ async function loadScript(kind: 'sh' | 'ps1') {
     const res = await fetch(`/client/update.${kind}`, { signal: controller.signal })
     if (!res.ok) throw new Error(String(res.status))
     const text = await res.text()
-    if (!text.trim() || text.trimStart().startsWith('<')) throw new Error('invalid script')
+    if (!snip.isScriptTemplate(text, kind)) throw new Error('invalid script')
     scripts.value[kind] = text
   } catch {
     if (!controller.signal.aborted || timedOut) scriptErrors.value[kind] = 'Não foi possível carregar o script. Verifique sua conexão e tente novamente.'

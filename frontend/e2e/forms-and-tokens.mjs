@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+const scriptTemplates = Object.fromEntries(['sh', 'ps1'].map(kind => [kind, readFileSync(new URL(`../../backend/internal/clientfiles/update.${kind}`, import.meta.url), 'utf8')]))
 const { chromium } = await import(process.env.HOMEALIAS_PLAYWRIGHT_MODULE || 'playwright')
 const browser = await chromium.launch({ executablePath: process.env.E2E_CHROME_PATH || '/usr/bin/google-chrome', headless: true, args: ['--no-sandbox'] })
 let checks = 0
@@ -22,7 +24,10 @@ for (const width of (process.env.E2E_WIDTHS ? process.env.E2E_WIDTHS.split(',').
   }[path] ?? [])
   return route.fulfill({ json: data })
  })
- await page.route('**/client/update.*', route => route.fulfill(scriptFailure ? { status: 503, body: 'offline' } : { body: '#!/bin/sh\n# modelo de teste\necho ok' }))
+ await page.route('**/client/update.*', route => {
+  const kind = new URL(route.request().url()).pathname.endsWith('.ps1') ? 'ps1' : 'sh'
+  return route.fulfill(scriptFailure ? { status: 503, body: 'offline' } : { contentType: 'text/plain; charset=utf-8', body: scriptTemplates[kind] })
+ })
  const base = process.env.E2E_BASE_URL || 'http://127.0.0.1:5173'
  // Account profile and administrator edit / password reset.
  for (const [path, opener, submit, fill, invalid] of [
@@ -58,11 +63,20 @@ for (const width of (process.env.E2E_WIDTHS ? process.env.E2E_WIDTHS.split(',').
  for (const tab of ['Script Linux', 'Docker', 'Roteador (DynDNS)', 'Windows']) {
   await page.getByRole('tab', { name: tab, exact: true }).click()
   await page.waitForLoadState('networkidle')
+  if (tab === 'Windows') {
+   await page.locator('#panel-windows').getByRole('button', { name: 'Baixar', exact: true }).waitFor()
+   const script = await page.locator('#panel-windows pre').first().textContent()
+   assert.ok(script.includes('param(') && script.includes('casa.exemplo.com'))
+   assert.ok(!script.includes('__HOMEALIAS_'))
+   assert.equal(await page.locator('#panel-windows').getByRole('button', { name: 'Tentar novamente', exact: true }).count(), 0)
+   checks += 3
+  }
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `Instructions overflow ${tab} @ ${width}`); checks++
  }
  await page.screenshot({ path: `/tmp/homealias-token-${width}.png`, fullPage: true })
  // Theme parity and 200% text scaling in the form layout.
- await page.getByRole('button', { name: 'Tema escuro', exact: true }).click()
+ await page.getByRole('button', { name: 'Menu de Ana', exact: true }).click()
+ await page.getByRole('menuitem', { name: 'Tema escuro', exact: true }).click()
  await page.goto(base + '/conta'); await page.waitForLoadState('networkidle')
  await page.getByRole('button', { name: 'Alterar senha', exact: true }).first().click()
  await page.evaluate(() => { document.documentElement.style.fontSize = '200%' })
