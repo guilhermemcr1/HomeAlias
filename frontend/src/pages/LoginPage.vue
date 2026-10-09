@@ -1,17 +1,16 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Eye, EyeOff } from 'lucide-vue-next'
 import * as v from '../composables/validation'
 import { focusFirstInvalid } from '../composables/formFocus'
 import { ApiError } from '../api/client'
 import FormField from '../components/FormField.vue'
+import PasswordInput from '../components/PasswordInput.vue'
 import CanvasText from '../components/ui/CanvasText.vue'
 import { useAuth } from '../composables/useAuth'
 
 const email = ref('')
 const password = ref('')
-const show = ref(false)
 const phase = ref<'idle' | 'checking' | 'success'>('idle')
 const busy = computed(() => phase.value !== 'idle')
 const error = ref('')
@@ -65,16 +64,14 @@ async function submit() {
       />
     </h1>
     <form ref="formElement" :aria-busy="busy" class="flex flex-col gap-5" novalidate @submit.prevent="submit">
-      <FormField v-slot="{ id, describedBy, invalid }" label="E-mail" :error="attempted ? errs.email : ''">
+      <FormField v-slot="{ id, describedBy, invalid }" label="E-mail" :error="errs.email" :submitted="attempted">
         <input :id="id" v-model="email" type="email" inputmode="email" autocapitalize="none" spellcheck="false" class="input input-bordered w-full" placeholder="voce@exemplo.com" maxlength="254" autocomplete="username" :aria-invalid="invalid" :aria-describedby="describedBy" :disabled="busy" autofocus required />
       </FormField>
-      <FormField v-slot="{ id, describedBy, invalid }" label="Senha" :error="attempted ? errs.password : ''">
-        <div class="relative">
-          <input
+      <FormField v-slot="{ id, describedBy, invalid }" label="Senha" :error="errs.password" :submitted="attempted">
+          <PasswordInput
             :id="id"
             v-model="password"
-            :type="show ? 'text' : 'password'"
-            class="input input-bordered w-full pr-12"
+            class="input input-bordered w-full"
             placeholder="Sua senha"
             maxlength="128"
             autocomplete="current-password"
@@ -83,16 +80,6 @@ async function submit() {
             :disabled="busy"
             required
           />
-          <button
-            type="button"
-            class="btn btn-ghost btn-sm btn-square absolute right-1.5 top-1/2 -translate-y-1/2"
-            :aria-label="show ? 'Ocultar senha' : 'Mostrar senha'"
-            :aria-pressed="show"
-            @click="show = !show"
-          >
-            <component :is="show ? EyeOff : Eye" :size="18" />
-          </button>
-        </div>
       </FormField>
       <p v-if="error" class="rounded-btn border border-error/50 bg-error/10 px-3 py-2.5 text-sm" role="alert">{{ error }}</p>
       <button
@@ -108,7 +95,7 @@ async function submit() {
         </svg>
         {{ phase === 'checking' ? 'Verificando…' : phase === 'success' ? 'Acesso confirmado' : 'Entrar' }}
       </button>
-      <span class="sr-only" role="status">{{ phase === 'checking' ? 'Verificando credenciais' : phase === 'success' ? 'Login confirmado, redirecionando' : '' }}</span>
+      <span class="sr-only" role="status">{{ phase === 'checking' ? 'Conferindo seu e-mail e sua senha' : phase === 'success' ? 'Acesso confirmado. Abrindo o painel.' : '' }}</span>
     </form>
   </div>
 </template>

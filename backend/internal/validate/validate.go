@@ -74,7 +74,7 @@ func Email(s string) (string, error) {
 	return s, nil
 }
 
-// Password exige 8 a 128 caracteres.
+// Password exige 12 a 128 caracteres e rejeita senhas fracas.
 func Password(s string) error {
 	n := utf8.RuneCountInString(s)
 	switch {
@@ -174,11 +174,11 @@ func ZoneName(s string) (string, error) {
 	s = strings.ToLower(strings.TrimSpace(s))
 	labels := strings.Split(s, ".")
 	if s == "" || len(s) > MaxFQDN || len(labels) < 2 {
-		return "", fail("Zona inválida.")
+		return "", fail("Escolha um domínio válido.")
 	}
 	for _, label := range labels {
 		if !dnsLabel.MatchString(label) {
-			return "", fail("Zona inválida.")
+			return "", fail("Escolha um domínio válido.")
 		}
 	}
 	return s, nil
@@ -187,7 +187,7 @@ func ZoneName(s string) (string, error) {
 // FQDNLen confere o tamanho total do nome completo.
 func FQDNLen(fqdn string) error {
 	if len(fqdn) > MaxFQDN {
-		return fail("O nome completo do host passa de 253 caracteres.")
+		return fail("O endereço completo pode ter no máximo 253 caracteres.")
 	}
 	return nil
 }
@@ -219,7 +219,7 @@ func ChannelDestination(kind, dest string) (string, error) {
 		return Email(dest)
 	case "telegram":
 		if !telegramID.MatchString(dest) {
-			return "", fail("Informe o Chat ID numérico (ex.: 123456789) ou @canal.")
+			return "", fail("Informe o número da conversa (Chat ID), como 123456789, ou o nome do canal, como @meucanal.")
 		}
 		return dest, nil
 	}

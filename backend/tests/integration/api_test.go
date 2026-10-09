@@ -167,7 +167,7 @@ func TestPanelAPIEndToEnd(t *testing.T) {
 		}
 	})
 
-	var hostID string
+	var hostID, connectionID string
 	t.Run("fluxo conexão, host, token e atualização", func(t *testing.T) {
 		admin.t = t
 		admin.call(http.MethodPost, "/api/connections", map[string]any{"name": "Conta", "api_token": "cf-token-1234", "test": true}, http.StatusCreated)
@@ -180,6 +180,7 @@ func TestPanelAPIEndToEnd(t *testing.T) {
 		if len(conns) != 1 || conns[0].Status != "valid" || !strings.HasSuffix(conns[0].Suffix, "1234") {
 			t.Fatalf("conexão inesperada: %+v", conns)
 		}
+		connectionID = conns[0].ID
 
 		admin.call(http.MethodPost, "/api/hosts", map[string]any{
 			"connection_id": conns[0].ID, "zone_id": "z1", "zone_name": "exemplo.com", "name": "casa", "enable_a": true,
@@ -195,6 +196,13 @@ func TestPanelAPIEndToEnd(t *testing.T) {
 			t.Fatalf("host inesperado: %+v", hosts)
 		}
 		hostID = hosts[0].ID
+		if code, _ := admin.do(http.MethodDelete, "/api/connections/"+connectionID, nil, false); code != http.StatusForbidden {
+			t.Fatalf("DELETE sem CSRF deveria ser 403, veio %d", code)
+		}
+		out := admin.call(http.MethodDelete, "/api/connections/"+connectionID, nil, http.StatusConflict)
+		if !strings.Contains(string(out), "hosts vinculados") {
+			t.Fatal("conexão em uso deve orientar a remoção dos hosts")
+		}
 
 		var tok struct {
 			Token        string            `json:"token"`
@@ -250,6 +258,7 @@ func TestPanelAPIEndToEnd(t *testing.T) {
 			t.Fatalf("usuário comum não deveria ver hosts do admin: %v", hosts)
 		}
 		user.call(http.MethodGet, "/api/connections", nil, 200)
+		user.call(http.MethodDelete, "/api/connections/"+connectionID, nil, http.StatusNotFound)
 		user.call(http.MethodGet, "/api/history", nil, 200)
 		if code, _ := user.do(http.MethodGet, "/api/users", nil, false); code != http.StatusNotFound {
 			t.Fatalf("/api/users para não-admin deveria ser 404, veio %d", code)
@@ -274,6 +283,13 @@ func TestPanelAPIEndToEnd(t *testing.T) {
 		admin.t = t
 		admin.call(http.MethodPost, "/api/hosts/"+hostID+"/sync", nil, 200)
 		admin.call(http.MethodDelete, "/api/hosts/"+hostID+"?delete_dns=true", nil, http.StatusNoContent)
+		admin.call(http.MethodDelete, "/api/connections/"+connectionID, nil, http.StatusNoContent)
+		admin.call(http.MethodDelete, "/api/connections/"+connectionID, nil, http.StatusNotFound)
+		var remaining []any
+		_ = json.Unmarshal(admin.call(http.MethodGet, "/api/connections", nil, http.StatusOK), &remaining)
+		if len(remaining) != 0 {
+			t.Fatal("conexão permaneceu após exclusão")
+		}
 		admin.call(http.MethodPost, "/api/auth/logout", nil, http.StatusNoContent)
 		if code, _ := admin.do(http.MethodGet, "/api/auth/me", nil, false); code != http.StatusUnauthorized {
 			t.Fatalf("após logout /me deveria ser 401, veio %d", code)

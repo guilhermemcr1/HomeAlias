@@ -60,6 +60,11 @@
     font-variant-numeric: tabular-nums;
     font-size: 0.875em;
   }
+  .form-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 16rem), 1fr));
+  }
   .page-title {
     font-family: theme('fontFamily.display');
     font-weight: 800;
@@ -99,6 +104,16 @@
   .input,
   .select {
     min-height: 2.75rem;
+  }
+  .input[aria-invalid='true'],
+  .select[aria-invalid='true'],
+  .textarea[aria-invalid='true'] {
+    @apply border-error;
+  }
+  .input[aria-invalid='true']:focus,
+  .select[aria-invalid='true']:focus,
+  .textarea[aria-invalid='true']:focus {
+    @apply outline-error;
   }
   .input:focus,
   .select:focus {

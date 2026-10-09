@@ -4,7 +4,7 @@ import { useToast } from '../composables/useToast'
 
 const { toasts, dismiss } = useToast()
 const icons = { success: CircleCheck, error: CircleX, warning: TriangleAlert, info: Info }
-const variants = { success: 'alert-success', error: 'alert-error', warning: 'alert-warning', info: 'alert-info' }
+const iconColors = { success: 'text-success', error: 'text-error', warning: 'text-warning', info: 'text-info' }
 </script>
 
 <template>
@@ -13,12 +13,11 @@ const variants = { success: 'alert-success', error: 'alert-error', warning: 'ale
     <div
       v-for="t in toasts"
       :key="t.id"
-      class="alert grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 p-3 text-left shadow-lg"
-      :class="variants[t.kind]"
+      class="alert grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-3 border-base-300 bg-base-100 p-3 text-left text-base-content shadow-lg"
       :role="t.kind === 'error' || t.kind === 'warning' ? 'alert' : 'status'"
       aria-atomic="true"
     >
-      <component :is="icons[t.kind]" :size="20" class="mt-3 shrink-0" aria-hidden="true" />
+      <component :is="icons[t.kind]" :size="20" class="mt-3 shrink-0" :class="iconColors[t.kind]" aria-hidden="true" />
       <p class="min-w-0 py-3 text-sm leading-5 [overflow-wrap:anywhere]">{{ t.text }}</p>
       <button type="button" class="btn btn-ghost btn-sm btn-square !min-h-[44px] !min-w-[44px] text-inherit" aria-label="Dispensar" @click="dismiss(t.id)">
         <X :size="18" aria-hidden="true" />

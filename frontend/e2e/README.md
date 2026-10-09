@@ -30,3 +30,9 @@ Para uma largura específica, use `E2E_WIDTHS=375` (ou uma lista separada por v�
 `edit-resources.mjs` valida edição da conexão sem trocar o segredo, troca do token e falha/repetição, além de edição de hostname, conflito e validação de zona em 375/1280 px. Usa credenciais fictícias e não altera DNS real.
 
 `form-failures.mjs` exercita edição de conexão/hostname, emissão de token e criação de canal em 320, 375 e 1280 px. Cobre requisições lentas, envios repetidos, bloqueio de cancelamento durante gravação, erros 400/403/404/409/429/500/502/503/504, JSON inválido e falha de rede, além do redirecionamento ao login após 401. Verifica preservação dos campos, reativação dos controles, mensagens e ausência de erros JavaScript. A verificação de overflow usa a largura disponível do documento, descontando a barra de rolagem.
+
+`form-feedback.mjs` verifica os campos ao perder foco, correções sem novo envio, dicas e erros associados, mostrar/ocultar segredos, limpeza de senha ao cancelar, convite com confirmação de senha, consulta de endereço obsoleta e rótulos em português no histórico/auditoria. Usa 320, 375 e 1280 px e dados fictícios.
+
+`modal-layout.mjs` verifica seis modais em 320, 375, 768 e 1280 px: largura maior no desktop, campos em duas colunas quando há espaço, ausência de overflow, texto ampliado em 200% e acesso aos botões em telas de pouca altura.
+
+`delete-connection.mjs` valida exclusão em 320, 375 e 1280 px: confirmação/cancelamento, conflito com hosts, falta de permissão, item removido, falha do servidor e de rede, recuperação, envio único, cabeçalho CSRF, estado vazio e texto em 200%. As chamadas à API são simuladas.

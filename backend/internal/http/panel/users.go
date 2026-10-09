@@ -79,7 +79,7 @@ func (u *UsersAPI) Create(w http.ResponseWriter, r *http.Request) {
 			INSERT INTO users (id, email, name, password_hash, role, status, created_at)
 			VALUES (?, ?, ?, NULL, 'user', 'invite_pending', ?)`, id, email, body.Name, time.Now().UTC())
 		if err != nil {
-			http.Error(w, "conflict", http.StatusConflict)
+			http.Error(w, "Este e-mail já está em uso.", http.StatusConflict)
 			return
 		}
 		_, _ = u.DB.ExecContext(r.Context(), `
@@ -98,7 +98,7 @@ func (u *UsersAPI) Create(w http.ResponseWriter, r *http.Request) {
 		INSERT INTO users (id, email, name, password_hash, role, status, created_at)
 		VALUES (?, ?, ?, ?, 'user', 'active', ?)`, id, email, body.Name, hash, time.Now().UTC())
 	if err != nil {
-		http.Error(w, "conflict", http.StatusConflict)
+		http.Error(w, "Este e-mail já está em uso.", http.StatusConflict)
 		return
 	}
 	_ = u.Audit.Write(r.Context(), audit.Entry{ActorID: &actor.ID, ActorRole: actor.Role, Action: "user_create", ResourceType: "user", ResourceID: id, IP: r.RemoteAddr, Summary: "user created with initial password"})
@@ -154,7 +154,7 @@ func (u *UsersAPI) AcceptInvite(w http.ResponseWriter, r *http.Request) {
 	}
 	err := u.DB.GetContext(r.Context(), &invite, `SELECT id, email, expires_at FROM invites WHERE token_hash=? AND consumed_at IS NULL`, hash)
 	if err != nil || time.Now().UTC().After(invite.Exp) {
-		http.Error(w, "invalid invite", http.StatusBadRequest)
+		http.Error(w, "Este convite expirou ou já foi usado. Peça um novo link ao administrador.", http.StatusBadRequest)
 		return
 	}
 	ph, err := auth.HashPassword(body.Password)

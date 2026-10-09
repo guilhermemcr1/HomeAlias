@@ -33,11 +33,11 @@ const errs = computed(() => ({
 const destinationPlaceholder = computed(() => (form.value.type === 'email' ? 'Ex.: voce@exemplo.com' : 'Ex.: 123456789 ou @meucanal'))
 
 const triggerLabel: Record<string, string> = {
-  no_contact: 'Host sem contato',
+  no_contact: 'Host sem atualizações',
   update_failure: 'Falha na atualização',
   ip_changed: 'IP alterado',
-  token_expiring: 'Token perto de expirar',
-  connection_invalid: 'Conexão Cloudflare inválida',
+  token_expiring: 'Token próximo do vencimento',
+  connection_invalid: 'Problema na conexão com a Cloudflare',
 }
 const scopeLabel: Record<string, string> = { all: 'todos os hosts', host: 'um host', user: 'um usuário' }
 
@@ -91,7 +91,7 @@ async function test(c: Channel) {
   try {
     const res = await api<{ status: string; error?: string }>(`/api/alert-channels/${c.id}/test`, { method: 'POST' })
     if (res.status === 'ok') toast.success(`Teste enviado para ${c.name}.`)
-    else toast.error(`Falha no teste de ${c.name}: ${res.error ?? 'erro desconhecido'}`)
+    else toast.error(`Não foi possível enviar o teste para ${c.name}. Confira o destino e peça ao administrador para verificar a configuração de envio.`)
   } catch (e) {
     toast.error(errorMessage(e))
   } finally {
@@ -102,19 +102,20 @@ async function test(c: Channel) {
 
 <template>
   <div>
-    <PageHeader title="Alertas" description="Receba um aviso por e-mail ou Telegram quando algo precisar de atenção.">
+    <PageHeader title="Alertas" description="Configure e teste o envio de mensagens por e-mail ou Telegram.">
       <template #actions>
         <button type="button" class="btn btn-primary gap-2" @click="openForm"><Plus :size="18" aria-hidden="true" />Novo canal</button>
       </template>
     </PageHeader>
     <LoadError v-if="loadError" :message="loadError" :busy="loading" @retry="reload" />
     <template v-if="!loadError">
+      <p class="mb-5 text-sm text-base-content/80">Por enquanto, apenas mensagens de teste são enviadas. O envio automático por regras ainda não está disponível.</p>
       <div>
         <div class="space-y-6">
           <section class="surface" aria-label="Canais">
             <h2 class="font-display text-lg font-bold p-4 pb-0">Canais</h2>
             <SkeletonRows v-if="loading" :rows="2" />
-            <EmptyState v-else-if="!channels.length" title="Nenhum canal" description="Cadastre um canal para poder receber alertas.">
+            <EmptyState v-else-if="!channels.length" title="Nenhum canal" description="Adicione um e-mail ou uma conversa do Telegram e envie uma mensagem de teste.">
               <template #icon><Bell :size="28" /></template>
               <button type="button" class="btn btn-primary" @click="openForm">Novo canal</button>
             </EmptyState>
@@ -123,7 +124,7 @@ async function test(c: Channel) {
                 <component :is="c.type === 'email' ? Mail : Send" :size="18" class="text-base-content/70" aria-hidden="true" />
                 <div class="min-w-0 flex-1 basis-40">
                   <p class="font-semibold truncate">{{ c.name }}</p>
-                  <p class="text-sm text-base-content/65">{{ c.type === 'email' ? 'E-mail' : 'Telegram' }}<span v-if="c.created_by_admin"> · definido pelo admin</span></p>
+                  <p class="text-sm text-base-content/65">{{ c.type === 'email' ? 'E-mail' : 'Telegram' }}<span v-if="c.created_by_admin"> · definido pelo administrador</span></p>
                 </div>
                 <button type="button" class="btn btn-sm btn-ghost" :disabled="testing === c.id" @click="test(c)">
                   <span v-if="testing === c.id" class="loading loading-spinner loading-xs" />Enviar teste
@@ -132,13 +133,13 @@ async function test(c: Channel) {
             </ul>
           </section>
           <section class="surface" aria-label="Regras">
-            <h2 class="font-display text-lg font-bold p-4 pb-0">Regras ativas</h2>
+            <h2 class="font-display text-lg font-bold p-4 pb-0">Regras cadastradas</h2>
             <p v-if="!loading && !rules.length" class="p-4 text-base-content/70">Nenhuma regra definida ainda.</p>
             <ul v-else class="divide-y divide-base-300 mt-2">
               <li v-for="r in rules" :key="r.id" class="flex flex-wrap items-center gap-2 p-4">
                 <span class="font-semibold">{{ triggerLabel[r.trigger] ?? r.trigger }}</span>
                 <span class="text-sm text-base-content/65">em {{ scopeLabel[r.scope_type] ?? r.scope_type }}</span>
-                <span v-if="r.created_by_admin" class="badge badge-info badge-outline ml-auto">Definida pelo admin</span>
+                <span v-if="r.created_by_admin" class="badge badge-info badge-outline ml-auto">Definida pelo administrador</span>
               </li>
             </ul>
           </section>
@@ -150,6 +151,7 @@ async function test(c: Channel) {
     <FormModal
       :open="showForm"
       title="Novo canal"
+      size="wide"
       description="Depois de cadastrar, envie um teste para confirmar que o aviso chega."
       submit-label="Cadastrar canal"
       busy-label="Cadastrando…"
@@ -158,16 +160,18 @@ async function test(c: Channel) {
       @submit="createChannel"
       @cancel="showForm = false"
     >
-      <FormField v-slot="{ id }" label="Tipo">
-        <select :id="id" v-model="form.type" class="select select-bordered w-full">
-          <option value="email">E-mail</option>
-          <option value="telegram">Telegram</option>
-        </select>
-      </FormField>
-      <FormField v-slot="{ id, describedBy, invalid }" label="Nome" hint="Para reconhecer o canal na lista." :error="attempted ? errs.name : ''">
-        <input :id="id" v-model="form.name" class="input input-bordered w-full" placeholder="Ex.: Meu e-mail" maxlength="80" autocomplete="off" required :aria-invalid="invalid" :aria-describedby="describedBy" />
-      </FormField>
-      <FormField v-slot="{ id, describedBy, invalid }" :label="form.type === 'email' ? 'Endereço de e-mail' : 'Chat ID do Telegram'" :error="attempted ? errs.destination : ''">
+      <div class="form-grid">
+        <FormField v-slot="{ id }" label="Tipo">
+          <select :id="id" v-model="form.type" class="select select-bordered w-full">
+            <option value="email">E-mail</option>
+            <option value="telegram">Telegram</option>
+          </select>
+        </FormField>
+        <FormField v-slot="{ id, describedBy, invalid }" label="Nome" hint="Para reconhecer o canal na lista." :error="errs.name" :submitted="attempted">
+          <input :id="id" v-model="form.name" class="input input-bordered w-full" :placeholder="form.type === 'email' ? 'Ex.: Meu e-mail' : 'Ex.: Avisos no Telegram'" maxlength="80" autocomplete="off" required :aria-invalid="invalid" :aria-describedby="describedBy" />
+        </FormField>
+      </div>
+      <FormField v-slot="{ id, describedBy, invalid }" :label="form.type === 'email' ? 'Endereço de e-mail' : 'Conversa ou canal do Telegram'" :hint="form.type === 'email' ? 'Para qual e-mail devemos enviar a mensagem?' : 'Use o número da conversa (Chat ID) ou o nome do canal com @.'" :error="errs.destination" :submitted="attempted">
         <input
           :id="id"
           v-model="form.destination"

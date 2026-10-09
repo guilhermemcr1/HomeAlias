@@ -17,14 +17,14 @@ try {
    if (path === '/api/connections/connection') {
     const body = route.request().postDataJSON()
     connectionWrites.push(body)
-    if (denyToken) return route.fulfill({ status: 400, body: 'O novo token precisa acessar todas as zonas dos hosts vinculados a esta conexão.' })
+    if (denyToken) return route.fulfill({ status: 400, body: 'O novo token precisa ter acesso a todos os domínios usados pelos hosts desta conexão.' })
     connection = { ...connection, name: body.name, api_token_suffix: body.api_token ? '…new1' : connection.api_token_suffix }
     return route.fulfill({ json: { id: connection.id } })
    }
    if (path === '/api/hosts/host') {
     const body = route.request().postDataJSON()
     hostWrites.push(body)
-    if (denyHostname) return route.fulfill({ status: 409, body: 'O novo hostname já possui registros na Cloudflare. Escolha outro nome.' })
+    if (denyHostname) return route.fulfill({ status: 409, body: 'O novo endereço já possui registros na Cloudflare. Escolha outro nome.' })
     host = { ...host, ...body, fqdn: body.name ? `${body.name}.example.com` : host.fqdn }
     return route.fulfill({ json: { id: host.id } })
    }
@@ -43,7 +43,7 @@ try {
   await token.fill('dummy_replacement_token_new1')
   denyToken = true
   await dialog.getByRole('button', { name: 'Validar e salvar', exact: true }).click()
-  await dialog.getByText('O novo token precisa acessar todas as zonas dos hosts vinculados a esta conexão.', { exact: true }).waitFor()
+  await dialog.getByText('O novo token precisa ter acesso a todos os domínios usados pelos hosts desta conexão.', { exact: true }).waitFor()
   assert.equal(await token.inputValue(), 'dummy_replacement_token_new1')
   assert.equal(connection.api_token_suffix, '…old1')
   denyToken = false
@@ -52,16 +52,16 @@ try {
   await page.getByText('…new1', { exact: true }).waitFor()
   assert.ok(!(await page.locator('body').innerText()).includes('dummy_replacement_token_new1'))
   await page.goto(base + '/hosts')
-  await page.getByRole('button', { name: 'Editar DNS', exact: true }).click()
-  const hostname = dialog.getByLabel('Hostname', { exact: true })
+  await page.getByRole('button', { name: 'Editar host', exact: true }).click()
+  const hostname = dialog.getByLabel('Endereço completo', { exact: true })
   await hostname.fill('outside.other.com')
   await dialog.getByRole('button', { name: 'Salvar alterações', exact: true }).click()
-  await dialog.getByText('Informe um hostname da zona example.com.', { exact: true }).waitFor()
+  await dialog.getByText('Use um endereço do domínio example.com.', { exact: true }).waitFor()
   assert.equal(hostWrites.length, 0)
   await hostname.fill('new.example.com')
   denyHostname = true
   await dialog.getByRole('button', { name: 'Salvar alterações', exact: true }).click()
-  await dialog.getByText('O novo hostname já possui registros na Cloudflare. Escolha outro nome.', { exact: true }).waitFor()
+  await dialog.getByText('O novo endereço já possui registros na Cloudflare. Escolha outro nome.', { exact: true }).waitFor()
   assert.equal(await hostname.inputValue(), 'new.example.com')
   await page.screenshot({ path: `/tmp/homealias-edit-resources-${width}.png`, fullPage: true })
   denyHostname = false

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { nextTick, onMounted, ref, useId, watch } from 'vue'
+import { nextTick, onMounted, provide, ref, useId, watch } from 'vue'
+import { formValidationCycle } from '../composables/formValidation'
 import { focusFirstInvalid } from '../composables/formFocus'
 import { X } from 'lucide-vue-next'
 
@@ -12,11 +13,16 @@ const props = withDefaults(defineProps<{
   busy?: boolean
   error?: string
   canSubmit?: boolean
-}>(), { canSubmit: true })
+  size?: 'default' | 'wide' | 'large'
+}>(), { canSubmit: true, size: 'default' })
+const widths = { default: 'sm:!max-w-lg', wide: 'sm:!max-w-3xl', large: 'sm:!max-w-4xl' }
 const emit = defineEmits<{ submit: []; cancel: [] }>()
 const dialog = ref<HTMLDialogElement | null>(null)
 const errorBox = ref<HTMLElement | null>(null)
 const titleId = useId()
+const cycle = ref(0)
+provide(formValidationCycle, cycle)
+watch(() => props.open, (open) => { if (open) cycle.value++ })
 
 function syncDialog() {
   if (props.open && !dialog.value?.open) dialog.value?.showModal()
@@ -48,7 +54,7 @@ function close() {
 
 <template>
   <dialog ref="dialog" class="modal modal-bottom sm:modal-middle" :aria-labelledby="titleId" :aria-hidden="!open" @cancel.prevent="close">
-    <div class="modal-box w-full max-w-lg">
+    <div class="modal-box w-full sm:!w-[calc(100%_-_2rem)]" :class="widths[size]">
       <div class="flex items-start justify-between gap-4">
         <div class="min-w-0">
           <h3 :id="titleId" class="font-display text-lg font-bold break-words">{{ title }}</h3>

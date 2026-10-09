@@ -1,11 +1,14 @@
 package panel
 
 import (
+	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-sql-driver/mysql"
 	"github.com/google/uuid"
 	"github.com/homealias/homealias/backend/internal/audit"
 	"github.com/homealias/homealias/backend/internal/auth"
@@ -168,7 +171,7 @@ func (c *ConnectionsAPI) Patch(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if !coversZones(zones, usedZones) {
-			http.Error(w, "O novo token precisa acessar todas as zonas dos hosts vinculados a esta conexão.", http.StatusBadRequest)
+			http.Error(w, "O novo token precisa ter acesso a todos os domínios usados pelos hosts desta conexão.", http.StatusBadRequest)
 			return
 		}
 		cipher, err := auth.Encrypt(c.EncKey, plain)
@@ -211,4 +214,49 @@ func coversZones(zones []dns.Zone, required []string) bool {
 		}
 	}
 	return true
+}
+
+func (c *ConnectionsAPI) Delete(w http.ResponseWriter, r *http.Request) {
+	actor, ok := auth.ActorFrom(r.Context())
+	if !ok {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	id := chi.URLParam(r, "id")
+	var conn domain.Connection
+	err := c.DB.GetContext(r.Context(), &conn, `SELECT id, owner_id FROM connections WHERE id=?`, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	if err != nil {
+		http.Error(w, "server error", http.StatusInternalServerError)
+		return
+	}
+	if auth.RequireOwner(actor, conn.OwnerID) != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	// The foreign key also protects against a host being created during deletion.
+	result, err := c.DB.ExecContext(r.Context(), `DELETE FROM connections WHERE id=? AND owner_id=?`, id, conn.OwnerID)
+	if err != nil {
+		var mysqlErr *mysql.MySQLError
+		if errors.As(err, &mysqlErr) && mysqlErr.Number == 1451 {
+			http.Error(w, "Esta conexão ainda tem hosts vinculados. Remova esses hosts na aba Hosts antes de excluir a conexão.", http.StatusConflict)
+			return
+		}
+		http.Error(w, "server error", http.StatusInternalServerError)
+		return
+	}
+	deleted, err := result.RowsAffected()
+	if err != nil {
+		http.Error(w, "server error", http.StatusInternalServerError)
+		return
+	}
+	if deleted == 0 {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	_ = c.Audit.Write(r.Context(), audit.Entry{ActorID: &actor.ID, ActorRole: actor.Role, Action: "connection_delete", ResourceType: "connection", ResourceID: id, ResourceOwnerID: &conn.OwnerID, IP: r.RemoteAddr, Summary: "connection deleted"})
+	w.WriteHeader(http.StatusNoContent)
 }

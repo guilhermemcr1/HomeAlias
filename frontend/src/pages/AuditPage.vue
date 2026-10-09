@@ -7,6 +7,7 @@ import EmptyState from '../components/EmptyState.vue'
 import PageHeader from '../components/PageHeader.vue'
 import SkeletonRows from '../components/SkeletonRows.vue'
 import { dateTime } from '../composables/format'
+import { actionLabel, resourceLabel, auditSummary } from '../composables/uiCopy'
 
 type Row = { id: number; created_at: string; action: string; resource_type: string; resource_id: string; ip: string; summary: string }
 
@@ -47,10 +48,10 @@ onMounted(reload)
           <tbody>
             <tr v-for="r in rows" :key="r.id" class="hover">
               <td class="whitespace-nowrap">{{ dateTime(r.created_at) }}</td>
-              <td class="font-data">{{ r.action }}</td>
-              <td class="hidden md:table-cell">{{ r.resource_type }}</td>
+              <td :title="r.action">{{ actionLabel(r.action) }}</td>
+              <td class="hidden md:table-cell" :title="r.resource_type">{{ resourceLabel(r.resource_type) }}</td>
               <td class="hidden sm:table-cell font-data">{{ r.ip }}</td>
-              <td>{{ r.summary }}</td>
+              <td>{{ auditSummary(r.summary) }}</td>
             </tr>
           </tbody>
         </table>

@@ -16,7 +16,7 @@ describe('validation (espelho do backend)', () => {
 
   it('password: 12 a 128', () => {
     expect(v.password('12345678901')).not.toBe('')
-    expect(v.password('123456789012')).toBe('')
+    expect(v.password('Lua azul!2026')).toBe('')
     expect(v.password('a'.repeat(129))).not.toBe('')
   })
 
@@ -37,6 +37,25 @@ describe('validation (espelho do backend)', () => {
     for (const ok of ['123456789', '-1001234567890', '@meucanal']) expect(v.channelDestination('telegram', ok)).toBe('')
     expect(v.channelDestination('telegram', 'abc')).not.toBe('')
   })
+})
+
+it('rejects weak passwords before submission, including normalized common variants', () => {
+  expect(v.password(' '.repeat(12))).toMatch(/espaços/)
+  expect(v.password('aaaaaaaaaaaa')).toMatch(/repetitiva/)
+  expect(v.password('Password-1234!')).toMatch(/comum/)
+  expect(v.password('HOMEALIAS_ADMIN')).toMatch(/comum/)
+  expect(v.password('Meu jardim tem 3 luas!')).toBe('')
+  expect(v.passwordMatch('Meu jardim tem 3 luas!', '')).not.toBe('')
+  expect(v.passwordMatch('Meu jardim tem 3 luas!', 'Outro jardim')).not.toBe('')
+  expect(v.passwordMatch('Meu jardim tem 3 luas!', 'Meu jardim tem 3 luas!')).toBe('')
+})
+
+it('rejects incomplete or malformed invitation codes', () => {
+  expect(v.inviteToken('')).not.toBe('')
+  expect(v.inviteToken('curto')).not.toBe('')
+  expect(v.inviteToken('abc def' + 'a'.repeat(30))).not.toBe('')
+  expect(v.inviteToken('a'.repeat(257))).not.toBe('')
+  expect(v.inviteToken('  ' + 'a_-'.repeat(15) + '  ')).toBe('')
 })
 
 it('handles unicode limits, full DNS lengths, blank selections and invalid channel types', () => {

@@ -82,7 +82,7 @@ func (h *HostsAPI) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if body.ZoneID == "" || len(body.ZoneID) > 64 {
-		http.Error(w, "Zona inválida.", http.StatusBadRequest)
+		http.Error(w, "Escolha um domínio válido.", http.StatusBadRequest)
 		return
 	}
 	if body.ZoneName, verr = validate.ZoneName(body.ZoneName); reject(w, verr) {
@@ -98,7 +98,7 @@ func (h *HostsAPI) Create(w http.ResponseWriter, r *http.Request) {
 		body.TTL = 1
 	}
 	if !body.EnableA && !body.EnableAAAA {
-		http.Error(w, "Ative ao menos um tipo de registro (A ou AAAA).", http.StatusBadRequest)
+		http.Error(w, "Selecione IPv4, IPv6 ou ambos.", http.StatusBadRequest)
 		return
 	}
 	var conn domain.Connection
@@ -114,7 +114,7 @@ func (h *HostsAPI) Create(w http.ResponseWriter, r *http.Request) {
 	var existing string
 	err = h.DB.GetContext(r.Context(), &existing, `SELECT id FROM hosts WHERE fqdn=?`, fqdn)
 	if err == nil {
-		http.Error(w, "fqdn taken", http.StatusConflict)
+		http.Error(w, "Este endereço já está cadastrado. Escolha outro nome.", http.StatusConflict)
 		return
 	}
 	plain, err := auth.Decrypt(h.EncKey, conn.APITokenCipher)
@@ -139,7 +139,7 @@ func (h *HostsAPI) Create(w http.ResponseWriter, r *http.Request) {
 		id, actor.ID, body.ConnectionID, body.ZoneID, body.ZoneName, body.Name, fqdn, body.EnableA, body.EnableAAAA, body.Proxied, body.TTL, time.Now().UTC(), time.Now().UTC())
 	if err != nil {
 		if strings.Contains(err.Error(), "Duplicate") {
-			http.Error(w, "fqdn taken", http.StatusConflict)
+			http.Error(w, "Este endereço já está cadastrado. Escolha outro nome.", http.StatusConflict)
 			return
 		}
 		http.Error(w, "server error", http.StatusInternalServerError)
@@ -193,7 +193,7 @@ func (h *HostsAPI) Check(w http.ResponseWriter, r *http.Request) {
 	}
 	var verr error
 	if body.ZoneID == "" || len(body.ZoneID) > 64 {
-		http.Error(w, "Zona inválida.", http.StatusBadRequest)
+		http.Error(w, "Escolha um domínio válido.", http.StatusBadRequest)
 		return
 	}
 	if body.ZoneName, verr = validate.ZoneName(body.ZoneName); reject(w, verr) {
@@ -263,7 +263,7 @@ func (h *HostsAPI) Patch(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 			if count > 0 {
-				http.Error(w, "Este hostname já está cadastrado.", http.StatusConflict)
+				http.Error(w, "Este endereço já está cadastrado.", http.StatusConflict)
 				return
 			}
 			host.Name, host.FQDN = name, fqdn
@@ -286,7 +286,7 @@ func (h *HostsAPI) Patch(w http.ResponseWriter, r *http.Request) {
 		host.TTL = ttl
 	}
 	if !host.EnableA && !host.EnableAAAA {
-		http.Error(w, "Ative ao menos um tipo de registro (A ou AAAA).", http.StatusBadRequest)
+		http.Error(w, "Selecione IPv4, IPv6 ou ambos.", http.StatusBadRequest)
 		return
 	}
 	if host.Proxied {
@@ -311,7 +311,7 @@ func (h *HostsAPI) Patch(w http.ResponseWriter, r *http.Request) {
 		}
 		err = prepareRename(cf.WithToken(r.Context(), plain), h.Provider, oldHost, &host)
 		if errors.Is(err, errDNSNameTaken) {
-			http.Error(w, "O novo hostname já possui registros A/AAAA/CNAME na Cloudflare. Escolha outro nome.", http.StatusConflict)
+			http.Error(w, "O novo endereço já possui registros na Cloudflare. Escolha outro nome.", http.StatusConflict)
 			return
 		}
 		if err != nil {
@@ -330,7 +330,7 @@ func (h *HostsAPI) Patch(w http.ResponseWriter, r *http.Request) {
 		host.Name, host.FQDN, host.EnableA, host.EnableAAAA, host.Proxied, host.TTL, host.WarningAfterSec, host.OfflineAfterSec, time.Now().UTC(), id)
 	if err != nil {
 		if strings.Contains(err.Error(), "Duplicate") {
-			http.Error(w, "Este hostname já está cadastrado.", http.StatusConflict)
+			http.Error(w, "Este endereço já está cadastrado.", http.StatusConflict)
 			return
 		}
 		http.Error(w, "server error", http.StatusInternalServerError)
@@ -466,7 +466,7 @@ func (h *HostsAPI) Sync(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := h.applyDNS(r, host); err != nil {
 		if errors.Is(err, errNoDNSRecord) {
-			http.Error(w, "Envie a primeira atualização DDNS para criar os registros antes de sincronizar.", http.StatusBadRequest)
+			http.Error(w, "Configure seu dispositivo e envie a primeira atualização antes de atualizar pela Cloudflare.", http.StatusBadRequest)
 			return
 		}
 		http.Error(w, "sync failed", http.StatusBadGateway)

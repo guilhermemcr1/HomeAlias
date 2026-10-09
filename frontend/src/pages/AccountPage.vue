@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { KeyRound, Pencil } from 'lucide-vue-next'
 import { api, errorMessage } from '../api/client'
 import FormField from '../components/FormField.vue'
+import PasswordInput from '../components/PasswordInput.vue'
 import FormModal from '../components/FormModal.vue'
 import PageHeader from '../components/PageHeader.vue'
 import { useAuth } from '../composables/useAuth'
@@ -21,6 +22,7 @@ const profile = ref({ name: '', email: '', current_password: '' })
 const profileBusy = ref(false)
 const profileError = ref('')
 const profileTried = ref(false)
+watch(showProfile, (open) => { if (!open) profile.value.current_password = '' })
 const emailChanged = computed(() => profile.value.email.trim().toLowerCase() !== (user.value?.email ?? ''))
 const profileErrs = computed(() => ({
   name: v.name('Nome', profile.value.name),
@@ -66,6 +68,7 @@ const pw = ref({ current: '', next: '', confirm: '' })
 const pwBusy = ref(false)
 const pwError = ref('')
 const pwTried = ref(false)
+watch(showPassword, (open) => { if (!open) pw.value = { current: '', next: '', confirm: '' } })
 const pwErrs = computed(() => ({
   current: v.required('Senha atual', pw.value.current),
   next: v.password(pw.value.next) || (pw.value.next === pw.value.current ? 'A nova senha deve ser diferente da atual.' : ''),
@@ -144,6 +147,7 @@ async function savePassword() {
     <FormModal
       :open="showProfile"
       title="Editar perfil"
+      size="wide"
       submit-label="Salvar"
       busy-label="Salvando…"
       :busy="profileBusy"
@@ -151,14 +155,16 @@ async function savePassword() {
       @submit="saveProfile"
       @cancel="showProfile = false"
     >
-      <FormField v-slot="{ id, describedBy, invalid }" label="Nome" :error="profileTried ? profileErrs.name : ''">
-        <input :id="id" v-model="profile.name" class="input input-bordered w-full" placeholder="Ex.: Ana Souza" maxlength="80" autocomplete="name" required :aria-invalid="invalid" :aria-describedby="describedBy" />
-      </FormField>
-      <FormField v-slot="{ id, describedBy, invalid }" label="E-mail" hint="É o e-mail que você usa para entrar." :error="profileTried ? profileErrs.email : ''">
-        <input :id="id" v-model="profile.email" type="email" inputmode="email" autocapitalize="none" spellcheck="false" class="input input-bordered w-full" placeholder="Ex.: ana@exemplo.com" maxlength="254" autocomplete="email" required :aria-invalid="invalid" :aria-describedby="describedBy" />
-      </FormField>
-      <FormField v-if="emailChanged" v-slot="{ id, describedBy, invalid }" label="Senha atual" hint="Necessária para trocar o e-mail." :error="profileTried ? profileErrs.current : ''">
-        <input :id="id" v-model="profile.current_password" type="password" class="input input-bordered w-full" placeholder="Sua senha atual" maxlength="128" autocomplete="current-password" required :aria-invalid="invalid" :aria-describedby="describedBy" />
+      <div class="form-grid">
+        <FormField v-slot="{ id, describedBy, invalid }" label="Nome" :error="profileErrs.name" :submitted="profileTried">
+          <input :id="id" v-model="profile.name" class="input input-bordered w-full" placeholder="Ex.: Ana Souza" maxlength="80" autocomplete="name" required :aria-invalid="invalid" :aria-describedby="describedBy" />
+        </FormField>
+        <FormField v-slot="{ id, describedBy, invalid }" label="E-mail" hint="É o e-mail que você usa para entrar." :error="profileErrs.email" :submitted="profileTried">
+          <input :id="id" v-model="profile.email" type="email" inputmode="email" autocapitalize="none" spellcheck="false" class="input input-bordered w-full" placeholder="Ex.: ana@exemplo.com" maxlength="254" autocomplete="email" required :aria-invalid="invalid" :aria-describedby="describedBy" />
+        </FormField>
+      </div>
+      <FormField v-if="emailChanged" v-slot="{ id, describedBy, invalid }" label="Senha atual" hint="Necessária para trocar o e-mail." :error="profileErrs.current" :submitted="profileTried">
+        <PasswordInput secret-label="senha atual" :id="id" v-model="profile.current_password" class="input input-bordered w-full" placeholder="Sua senha atual" maxlength="128" autocomplete="current-password" required :aria-invalid="invalid" :aria-describedby="describedBy" />
       </FormField>
     </FormModal>
 
@@ -172,14 +178,14 @@ async function savePassword() {
       @submit="savePassword"
       @cancel="showPassword = false"
     >
-      <FormField v-slot="{ id, describedBy, invalid }" label="Senha atual" :error="pwTried ? pwErrs.current : ''">
-        <input :id="id" v-model="pw.current" type="password" class="input input-bordered w-full" placeholder="Sua senha atual" maxlength="128" autocomplete="current-password" required :aria-invalid="invalid" :aria-describedby="describedBy" />
+      <FormField v-slot="{ id, describedBy, invalid }" label="Senha atual" :error="pwErrs.current" :submitted="pwTried">
+        <PasswordInput secret-label="senha atual" :id="id" v-model="pw.current" class="input input-bordered w-full" placeholder="Sua senha atual" maxlength="128" autocomplete="current-password" required :aria-invalid="invalid" :aria-describedby="describedBy" />
       </FormField>
-      <FormField v-slot="{ id, describedBy, invalid }" label="Nova senha" hint="Mínimo de 12 caracteres. Uma frase longa é melhor que uma senha curta e complicada." :error="pwTried ? pwErrs.next : ''">
-        <input :id="id" v-model="pw.next" type="password" class="input input-bordered w-full" placeholder="Pelo menos 12 caracteres" maxlength="128" autocomplete="new-password" required :aria-invalid="invalid" :aria-describedby="describedBy" />
+      <FormField v-slot="{ id, describedBy, invalid }" label="Nova senha" hint="Mínimo de 12 caracteres. Uma frase longa é melhor que uma senha curta e complicada." :error="pwErrs.next" :submitted="pwTried">
+        <PasswordInput secret-label="nova senha" :id="id" v-model="pw.next" class="input input-bordered w-full" placeholder="Pelo menos 12 caracteres" maxlength="128" autocomplete="new-password" required :aria-invalid="invalid" :aria-describedby="describedBy" />
       </FormField>
-      <FormField v-slot="{ id, describedBy, invalid }" label="Confirmar nova senha" :error="pwTried ? pwErrs.confirm : ''">
-        <input :id="id" v-model="pw.confirm" type="password" class="input input-bordered w-full" placeholder="Repita a nova senha" maxlength="128" autocomplete="new-password" required :aria-invalid="invalid" :aria-describedby="describedBy" />
+      <FormField v-slot="{ id, describedBy, invalid }" label="Confirmar nova senha" :error="pwErrs.confirm" :submitted="pwTried">
+        <PasswordInput secret-label="confirmação de senha" :id="id" v-model="pw.confirm" class="input input-bordered w-full" placeholder="Repita a nova senha" maxlength="128" autocomplete="new-password" required :aria-invalid="invalid" :aria-describedby="describedBy" />
       </FormField>
     </FormModal>
   </div>

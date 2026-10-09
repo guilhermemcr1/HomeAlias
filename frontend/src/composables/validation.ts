@@ -29,11 +29,30 @@ export function password(v: string): string {
   const n = runes(v)
   if (n < limits.passwordMin) return `A senha precisa ter pelo menos ${limits.passwordMin} caracteres.`
   if (n > limits.passwordMax) return `A senha deve ter no máximo ${limits.passwordMax} caracteres.`
+  if (!v.trim()) return 'A senha não pode ser só espaços.'
+  if (new Set([...v.toLowerCase()]).size < 5) return 'A senha é repetitiva demais. Use caracteres variados ou uma frase longa.'
+  if (commonPasswords.has(v.toLowerCase().replace(/[^\p{L}\p{Nd}]/gu, ''))) return 'Essa senha é muito comum. Escolha outra, de preferência uma frase longa.'
   return ''
 }
 
 export function passwordMatch(a: string, b: string): string {
-  return a === b ? '' : 'As senhas não conferem.'
+  if (!b) return 'Repita a senha para confirmar.'
+  return a === b ? '' : 'As senhas são diferentes. Digite a mesma senha nos dois campos.'
+}
+
+// Espelha a lista de backend/internal/validate para avisar antes de enviar.
+const commonPasswords = new Set([
+  'changemenow', 'changemenow123', 'homealias', 'homealias123', 'homealiasadmin',
+  'password1234', 'password12345', 'passwordpassword', 'senha1234567', 'senhasenha1234',
+  '123456789012', '1234567890123', '123456123456', 'qwertyuiop12', 'qwertyuiopas',
+  'qwerty123456', 'abcdefghijkl', 'abc123abc123', 'administrator', 'administrador',
+  'admin1234567', 'adminadmin123', 'letmein12345', 'welcome12345', 'iloveyou1234',
+  'mudar123456', 'trocar123456', 'senhaforte123', 'minhasenha123', 'brasil123456',
+])
+
+export function inviteToken(value: string): string {
+  if (!value.trim()) return 'O código do convite é obrigatório.'
+  return /^[A-Za-z0-9_-]{20,256}$/.test(value.trim()) ? '' : 'O código do convite está incompleto ou inválido. Abra o link enviado pelo administrador.'
 }
 
 /** Mesma tolerância do backend: remove "Bearer " e aspas coladas junto do token. */
@@ -64,7 +83,7 @@ export function channelDestination(type: string, v: string): string {
   const s = v.trim()
   if (type === 'email') return email(s)
   if (type !== 'telegram') return 'Tipo de canal inválido.'
-  if (!TELEGRAM_ID.test(s)) return 'Informe o Chat ID numérico (ex.: 123456789) ou @canal.'
+  if (!TELEGRAM_ID.test(s)) return 'Informe o número da conversa (Chat ID), como 123456789, ou o nome do canal, como @meucanal.'
   return ''
 }
 
@@ -79,5 +98,5 @@ export function firstError(...errs: string[]): string {
 
 export function fqdn(host: string, zone: string): string {
   const full = host.trim() === '@' ? zone.trim() : `${host.trim()}.${zone.trim()}`
-  return full.length > 253 ? 'O nome completo do host passa de 253 caracteres.' : ''
+  return full.length > 253 ? 'O endereço completo pode ter no máximo 253 caracteres.' : ''
 }

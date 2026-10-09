@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { Cable, Pencil, Plus, RefreshCw } from 'lucide-vue-next'
+import { Cable, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-vue-next'
 import { api, errorMessage } from '../api/client'
 import LoadError from '../components/LoadError.vue'
 import EmptyState from '../components/EmptyState.vue'
 import FormField from '../components/FormField.vue'
+import PasswordInput from '../components/PasswordInput.vue'
 import FormModal from '../components/FormModal.vue'
+import ConfirmDialog from '../components/ConfirmDialog.vue'
 import PageHeader from '../components/PageHeader.vue'
 import SkeletonRows from '../components/SkeletonRows.vue'
 import StatusBadge from '../components/StatusBadge.vue'
@@ -35,8 +37,33 @@ const busy = ref(false)
 const error = ref('')
 const attempted = ref(false)
 const editingId = ref('')
-const errs = computed(() => ({ name: v.name('Nome', name.value), token: editingId.value && !token.value ? '' : v.apiToken(token.value) }))
+const errs = computed(() => ({ name: v.name('Nome', name.value), token: editingId.value && !token.value.trim() ? '' : v.apiToken(token.value) }))
 const testing = ref('')
+const removing = ref<Connection | null>(null)
+const deleting = ref(false)
+const deleteError = ref('')
+
+function confirmRemoval(c: Connection) {
+  deleteError.value = ''
+  removing.value = c
+}
+
+async function remove() {
+  if (deleting.value || !removing.value) return
+  deleting.value = true
+  deleteError.value = ''
+  const connection = removing.value
+  try {
+    await api(`/api/connections/${connection.id}`, { method: 'DELETE' })
+    list.value = list.value.filter(c => c.id !== connection.id)
+    removing.value = null
+    toast.success('Conexão excluída.')
+  } catch (e) {
+    deleteError.value = errorMessage(e)
+  } finally {
+    deleting.value = false
+  }
+}
 
 async function reload() {
   if (reloading) return
@@ -86,10 +113,10 @@ async function create() {
   try {
     await api(editingId.value ? `/api/connections/${editingId.value}` : '/api/connections', {
       method: editingId.value ? 'PATCH' : 'POST',
-      body: JSON.stringify({ name: name.value.trim(), ...(!editingId.value || token.value ? { api_token: v.normalizeApiToken(token.value) } : {}), test: true }),
+      body: JSON.stringify({ name: name.value.trim(), ...(!editingId.value || token.value.trim() ? { api_token: v.normalizeApiToken(token.value) } : {}), test: true }),
     })
     closeForm()
-    toast.success(editingId.value ? 'Conexão atualizada. Os hosts continuam vinculados.' : 'Conexão validada e salva. O token não será exibido de novo.')
+    toast.success(editingId.value ? 'Conexão atualizada. Seus hosts continuam usando esta conta.' : 'Conexão salva. Você já pode adicionar um host.')
     await reload()
   } catch (e) {
     error.value = errorMessage(e, 'A Cloudflare recusou o token.')
@@ -117,7 +144,7 @@ async function retest(c: Connection) {
   <div>
     <PageHeader
       title="Conexões"
-      description="Uma conexão é um token da sua conta Cloudflare. Com ela o HomeAlias cria e atualiza os registros DNS."
+      description="Conecte sua conta da Cloudflare para manter seus endereços atualizados."
     >
       <template #actions>
         <button type="button" class="btn btn-primary gap-2" @click="openForm"><Plus :size="18" aria-hidden="true" />Nova conexão</button>
@@ -131,7 +158,7 @@ async function retest(c: Connection) {
           <EmptyState
             v-else-if="!list.length"
             title="Nenhuma conexão ainda"
-            description="Cadastre o primeiro token. Depois você poderá criar hosts nas zonas dele."
+            description="Adicione uma conexão para usar os domínios da sua conta Cloudflare."
           >
             <template #icon><Cable :size="28" /></template>
             <button type="button" class="btn btn-primary" @click="openForm">Nova conexão</button>
@@ -142,15 +169,19 @@ async function retest(c: Connection) {
                 <p class="font-semibold truncate">{{ c.name }}</p>
                 <p class="text-sm text-base-content/65">
                   Token <span class="font-data">{{ c.api_token_suffix }}</span>
-                  · verificada {{ relativeTime(c.last_checked_at) }}
+                  · verificação: {{ c.last_checked_at ? relativeTime(c.last_checked_at) : 'ainda não realizada' }}
                 </p>
-                <p v-if="c.last_error" class="mt-1 text-sm text-error">{{ c.last_error }}</p>
+                <div v-if="c.last_error" class="mt-1 text-sm">
+                  <p class="text-error">Não foi possível conferir esta conexão. Verifique o token e tente testar novamente.</p>
+                  <details class="mt-1"><summary class="cursor-pointer">Detalhes técnicos</summary><p class="mt-1 break-words">{{ c.last_error }}</p></details>
+                </div>
               </div>
               <StatusBadge :status="c.status" />
               <button type="button" class="btn btn-sm btn-ghost gap-1.5" @click="openEdit(c)"><Pencil :size="14" aria-hidden="true" />Editar conexão</button>
               <button type="button" class="btn btn-sm btn-ghost gap-1.5" :disabled="testing === c.id" @click="retest(c)">
                 <RefreshCw :size="14" :class="{ 'animate-spin': testing === c.id }" aria-hidden="true" />Testar
               </button>
+              <button type="button" class="btn btn-sm btn-ghost text-error gap-1.5" :disabled="!!testing" @click="confirmRemoval(c)"><Trash2 :size="14" aria-hidden="true" />Excluir conexão</button>
             </li>
           </ul>
           <div v-if="list.length" class="border-t border-base-300 p-4 text-sm">
@@ -164,7 +195,8 @@ async function retest(c: Connection) {
     <FormModal
       :open="showForm"
       :title="editingId ? 'Editar conexão' : 'Nova conexão'"
-      :description="editingId ? 'Deixe o token vazio para manter o atual. Um novo token será validado antes da substituição.' : 'O token é validado na Cloudflare antes de ser salvo e nunca é exibido de novo.'"
+      size="wide"
+      :description="editingId ? 'Para trocar apenas o nome, deixe o token em branco. Se informar outro token, vamos conferir se ele funciona antes de salvar.' : 'Vamos conferir o token na Cloudflare antes de salvar. Depois disso, ele ficará oculto.'"
       submit-label="Validar e salvar"
       busy-label="Validando…"
       :busy="busy"
@@ -172,7 +204,7 @@ async function retest(c: Connection) {
       @submit="create"
       @cancel="closeForm"
     >
-      <FormField v-slot="{ id, describedBy, invalid }" label="Nome" hint="Só para você identificar." :error="attempted ? errs.name : ''">
+      <FormField v-slot="{ id, describedBy, invalid }" label="Nome" hint="Escolha um nome fácil de reconhecer." :error="errs.name" :submitted="attempted">
         <input
           :id="id"
           v-model="name"
@@ -188,13 +220,12 @@ async function retest(c: Connection) {
       <FormField
         v-slot="{ id, describedBy, invalid }"
         label="Token de API da Cloudflare"
-        :hint="editingId ? 'Cole o novo token para substituir o atual. Ele precisa acessar as zonas dos hosts vinculados, com Zone · Zone · Read e Zone · DNS · Edit.' : 'Crie em Cloudflare → Meu perfil → Tokens de API, com Zone · Zone · Read e Zone · DNS · Edit.'"
-        :error="attempted ? errs.token : ''"
+        :hint="editingId ? 'Opcional. O novo token precisa acessar os domínios dos seus hosts. Permissões na Cloudflare: Zone · Zone · Read e Zone · DNS · Edit.' : 'Na Cloudflare, abra Meu perfil → Tokens de API e crie um token. Permissões necessárias: Zone · Zone · Read e Zone · DNS · Edit.'"
+        :error="errs.token" :submitted="attempted"
       >
-        <input
+        <PasswordInput secret-label="token"
           :id="id"
           v-model="token"
-          type="password"
           class="input input-bordered w-full font-data"
           placeholder="Cole o token gerado na Cloudflare"
           maxlength="256"
@@ -206,5 +237,18 @@ async function retest(c: Connection) {
         />
       </FormField>
     </FormModal>
+    <ConfirmDialog
+      :open="!!removing"
+      title="Excluir conexão?"
+      :confirm-label="deleting ? 'Excluindo…' : 'Excluir conexão'"
+      danger
+      :busy="deleting"
+      @confirm="remove"
+      @cancel="removing = null"
+    >
+      <p>Você vai excluir <strong class="break-words">{{ removing?.name }}</strong> do HomeAlias. A conta e os registros DNS na Cloudflare continuam intactos.</p>
+      <p class="mt-3 text-sm">Se houver hosts vinculados, remova-os na aba Hosts antes de excluir esta conexão.</p>
+      <p v-if="deleteError" class="mt-3 text-sm text-error break-words" role="alert">{{ deleteError }}</p>
+    </ConfirmDialog>
   </div>
 </template>

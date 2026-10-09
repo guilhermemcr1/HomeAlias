@@ -43,7 +43,7 @@ try {
   })
   for (const [path, opener, submit, field, value] of [
    ['/connections', 'Editar conexão', 'Validar e salvar', 'Token de API da Cloudflare', 'dummy_replacement_token_1234'],
-   ['/hosts', 'Editar DNS', 'Salvar alterações', 'Hostname', 'new.example.com'],
+   ['/hosts', 'Editar host', 'Salvar alterações', 'Endereço completo', 'new.example.com'],
    ['/tokens', null, 'Gerar token', 'Nome do token', 'Teste'],
    ['/alerts', 'Novo canal', 'Cadastrar canal', 'Endereço de e-mail', 'test@example.com'],
   ]) {

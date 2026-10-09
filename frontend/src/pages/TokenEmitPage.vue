@@ -81,7 +81,7 @@ function again() {
   <div>
     <PageHeader
       title="Tokens DDNS"
-      description="O token autoriza um cliente (roteador, servidor, PC) a atualizar um host. Gere um por dispositivo."
+      description="Um token é um código de acesso que permite ao seu dispositivo atualizar um host. Gere um para cada dispositivo."
     >
       <template v-if="hosts.length && !issued" #actions>
         <button type="button" class="btn btn-primary gap-2" @click="showForm = true"><Plus :size="18" aria-hidden="true" />Novo token</button>
@@ -94,7 +94,7 @@ function again() {
       v-if="!loadError && loaded && !hosts.length"
       class="surface"
       title="Crie um host antes de gerar o token"
-      description="Todo token é ligado a pelo menos um host."
+      description="Primeiro, adicione o endereço que seu dispositivo vai atualizar."
     >
       <RouterLink to="/hosts" class="btn btn-primary">Ir para Hosts</RouterLink>
     </EmptyState>
@@ -108,7 +108,7 @@ function again() {
       </div>
       <CodeBlock :code="issued.token" :mask="issued.token" :caption="`Token para ${hostName}`" />
       <div>
-        <h2 class="font-display text-lg font-bold mb-3">Configure o cliente</h2>
+        <h2 class="font-display text-lg font-bold mb-3">Configure seu dispositivo</h2>
         <ClientInstructions :token="issued.token" :hostname="hostName" :ipv4-enabled="selectedHost?.enable_a ?? true" :ipv6-enabled="selectedHost?.enable_aaaa ?? false" />
       </div>
       <div class="flex flex-wrap gap-2 pt-1">
@@ -117,7 +117,7 @@ function again() {
       </div>
     </div>
 
-    <EmptyState v-else-if="!loadError && loaded" class="surface" title="Nenhum token gerado nesta sessão" description="Por segurança o token só aparece uma vez, logo após ser gerado.">
+    <EmptyState v-else-if="!loadError && loaded" class="surface" title="Gere um token para começar" description="Por segurança o token só aparece uma vez, logo após ser gerado.">
       <template #icon><KeyRound :size="28" /></template>
       <button type="button" class="btn btn-primary" @click="showForm = true">Gerar token</button>
     </EmptyState>
@@ -125,6 +125,7 @@ function again() {
     <FormModal
       :open="showForm"
       title="Novo token DDNS"
+      size="wide"
       description="O token aparece uma única vez, logo após ser gerado."
       submit-label="Gerar token"
       busy-label="Gerando…"
@@ -133,15 +134,17 @@ function again() {
       @submit="emit"
       @cancel="showForm = false"
     >
-      <FormField v-slot="{ id, describedBy, invalid }" label="Host" :error="attempted ? errs.host : ''">
-        <select :id="id" v-model="hostId" class="select select-bordered w-full" required :aria-invalid="invalid" :aria-describedby="describedBy">
-          <option disabled value="">Escolha um host…</option>
-          <option v-for="h in hosts" :key="h.id" :value="h.id">{{ h.fqdn }}</option>
-        </select>
-      </FormField>
-      <FormField v-slot="{ id, describedBy, invalid }" label="Nome do token" hint="Para reconhecer o dispositivo depois." :error="attempted ? errs.name : ''">
-        <input :id="id" v-model="name" class="input input-bordered w-full" placeholder="Ex.: roteador, NAS" maxlength="80" autocomplete="off" required :aria-invalid="invalid" :aria-describedby="describedBy" />
-      </FormField>
+      <div class="form-grid">
+        <FormField v-slot="{ id, describedBy, invalid }" label="Host" :error="errs.host" :submitted="attempted">
+          <select :id="id" v-model="hostId" class="select select-bordered w-full" required :aria-invalid="invalid" :aria-describedby="describedBy">
+            <option disabled value="">Escolha um host…</option>
+            <option v-for="h in hosts" :key="h.id" :value="h.id">{{ h.fqdn }}</option>
+          </select>
+        </FormField>
+        <FormField v-slot="{ id, describedBy, invalid }" label="Nome do token" hint="Use o nome do dispositivo que fará as atualizações." :error="errs.name" :submitted="attempted">
+          <input :id="id" v-model="name" class="input input-bordered w-full" placeholder="Ex.: roteador, NAS" maxlength="80" autocomplete="off" required :aria-invalid="invalid" :aria-describedby="describedBy" />
+        </FormField>
+      </div>
     </FormModal>
   </div>
 </template>

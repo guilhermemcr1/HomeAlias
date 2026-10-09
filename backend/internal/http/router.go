@@ -78,6 +78,7 @@ func NewRouter(cfg *config.Config, db *sqlx.DB, provider dns.Provider) http.Hand
 			priv.Get("/connections", connAPI.List)
 			priv.Post("/connections", connAPI.Create)
 			priv.Patch("/connections/{id}", connAPI.Patch)
+			priv.Delete("/connections/{id}", connAPI.Delete)
 			priv.Post("/connections/{id}/test", connAPI.Test)
 			priv.Get("/hosts", hostsAPI.List)
 			priv.Post("/hosts", hostsAPI.Create)

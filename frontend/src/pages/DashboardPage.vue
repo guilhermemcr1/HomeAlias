@@ -81,16 +81,16 @@ function lastSeen(h: Host): string | null {
 const hasConnection = computed(() => connections.value.length > 0)
 const hasHost = computed(() => hosts.value.length > 0)
 const steps = computed(() => [
-  { n: 1, title: 'Conecte sua Cloudflare', text: 'Cole um token de API com permissão Zone DNS Edit. Ele é validado e guardado criptografado.', to: '/connections', cta: 'Adicionar conexão', done: hasConnection.value },
-  { n: 2, title: 'Crie um host', text: 'Escolha a zona e o subdomínio que vai acompanhar o seu IP.', to: '/hosts', cta: 'Criar host', done: hasHost.value },
-  { n: 3, title: 'Gere um token e configure o cliente', text: 'Roteador, Docker ou Windows chamam o HomeAlias para manter o DNS atualizado.', to: '/tokens', cta: 'Gerar token', done: false },
+  { n: 1, title: 'Conecte sua Cloudflare', text: 'Adicione o token da sua conta Cloudflare. Vamos conferir as permissões e guardar o token com segurança.', to: '/connections', cta: 'Adicionar conexão', done: hasConnection.value },
+  { n: 2, title: 'Crie um host', text: 'Escolha um domínio e crie o endereço que vai apontar para sua rede.', to: '/hosts', cta: 'Criar host', done: hasHost.value },
+  { n: 3, title: 'Configure seu dispositivo', text: 'Gere um token e siga as instruções para manter o endereço atualizado pelo roteador, Docker ou Windows.', to: '/tokens', cta: 'Gerar token', done: false },
 ])
 const currentStep = computed(() => (hasHost.value ? 3 : hasConnection.value ? 2 : 1))
 </script>
 
 <template>
   <div>
-    <PageHeader title="Painel" description="O estado dos seus hosts, os mais urgentes primeiro.">
+    <PageHeader title="Painel" description="Acompanhe seus endereços e veja quais precisam de atenção.">
       <template #actions>
         <button type="button" class="btn btn-ghost gap-2" :disabled="refreshing" @click="load">
           <RefreshCw :size="16" aria-hidden="true" />Atualizar
@@ -166,7 +166,7 @@ const currentStep = computed(() => (hasHost.value ? 3 : hasConnection.value ? 2 
               <td class="hidden sm:table-cell font-data">{{ h.last_ipv4 || '—' }}</td>
               <td class="hidden lg:table-cell font-data max-w-48 truncate" :title="h.last_ipv6 ?? ''">{{ h.last_ipv6 || '—' }}</td>
               <td class="whitespace-nowrap">{{ relativeTime(lastSeen(h)) }}</td>
-              <td class="hidden md:table-cell">{{ h.proxied ? 'Com proxy' : 'Só DNS' }}</td>
+              <td class="hidden md:table-cell">{{ h.proxied ? 'Pela Cloudflare' : 'Acesso direto' }}</td>
             </tr>
           </tbody>
         </table>

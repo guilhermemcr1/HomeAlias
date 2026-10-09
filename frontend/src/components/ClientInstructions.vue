@@ -79,11 +79,11 @@ watch(
 <template>
   <div class="space-y-4">
     <p class="text-sm text-base-content/80">
-      Atualização automática: {{ props.ipv4Enabled && props.ipv6Enabled ? 'IPv4 (A) e IPv6 (AAAA), em chamadas separadas.' : props.ipv4Enabled ? 'IPv4 (A).' : 'IPv6 (AAAA).' }}
-      A rede do cliente precisa oferecer cada tipo de conexão habilitado.
+      Atualização automática: {{ props.ipv4Enabled && props.ipv6Enabled ? 'IPv4 (A) e IPv6 (AAAA), com uma atualização para cada tipo.' : props.ipv4Enabled ? 'IPv4 (A).' : 'IPv6 (AAAA).' }}
+      Seu dispositivo precisa ter acesso aos tipos de IP selecionados.
     </p>
     <div class="overflow-x-auto pb-1">
-      <div role="tablist" aria-label="Tipo de cliente" class="inline-flex min-w-full gap-1 rounded-box bg-base-200 p-1 sm:min-w-0">
+      <div role="tablist" aria-label="Forma de configuração" class="inline-flex min-w-full gap-1 rounded-box bg-base-200 p-1 sm:min-w-0">
         <button
           v-for="(t, i) in tabs"
           :id="`tab-${t.key}`"
@@ -106,7 +106,7 @@ watch(
 
     <!-- Script Linux -->
     <div v-if="active === 'shell'" id="panel-shell" role="tabpanel" aria-labelledby="tab-shell" class="space-y-4">
-      <p class="text-base-content/80">Para Linux, macOS, NAS e Raspberry Pi. O script já vem com o seu servidor, host e token preenchidos.</p>
+      <p class="text-base-content/80">Para Linux, macOS, NAS e Raspberry Pi. O arquivo já vem com o endereço do seu HomeAlias, o host e o token preenchidos.</p>
       <ol class="list-decimal space-y-3 pl-5 marker:font-semibold">
         <li>
           Copie ou baixe o script abaixo e salve como <code class="font-data">homealias-update.sh</code>.
@@ -122,7 +122,7 @@ watch(
 
     <!-- Docker -->
     <div v-else-if="active === 'docker'" id="panel-docker" role="tabpanel" aria-labelledby="tab-docker" class="space-y-4">
-      <p class="text-base-content/80">Sem imagem própria: usa a imagem oficial <code class="font-data">curlimages/curl</code> e repete a atualização a cada 5 minutos.</p>
+      <p class="text-base-content/80">Este comando usa a imagem oficial <code class="font-data">curlimages/curl</code> e repete a atualização a cada 5 minutos.</p>
       <CodeBlock :code="snip.dockerRun(cfg)" :mask="props.token" caption="docker run" />
       <details class="rounded-btn border border-base-300 p-3">
         <summary class="cursor-pointer font-medium">Prefere Docker Compose?</summary>
@@ -142,7 +142,8 @@ watch(
       </div>
       <p class="text-xs text-base-content/65">Clique em um campo para copiar. Dados sensíveis ficam ocultos até você passar o mouse ou copiar.</p>
       <details class="rounded-btn border border-base-300 p-3">
-        <summary class="cursor-pointer font-medium">Testar do computador (deve responder "good" ou "nochg")</summary>
+        <summary class="cursor-pointer font-medium">Testar pelo computador</summary>
+        <p class="mt-2 text-sm text-base-content/70">A resposta good confirma a atualização. nochg indica que o IP já estava correto.</p>
         <CodeBlock class="mt-3" :code="snip.routerTest(cfg)" :mask="props.token" caption="cURL" />
       </details>
       <details class="rounded-btn border border-base-300 p-3">
@@ -175,7 +176,7 @@ watch(
     <div v-else-if="active === 'curl'" id="panel-curl" role="tabpanel" aria-labelledby="tab-curl" class="space-y-4">
       <p class="text-base-content/80">Execute no terminal para atualizar agora. Os comandos usam IPv4 ou IPv6 conforme os registros habilitados no host.</p>
       <CodeBlock :code="snip.curlCommand(cfg)" :mask="props.token" caption="cURL" />
-      <p class="text-sm text-base-content/70">Cada execução faz uma atualização. Para atualizar periodicamente, use um dos scripts ou o cliente Docker.</p>
+      <p class="text-sm text-base-content/70">Cada vez que você executar o comando, ele enviará uma atualização. Para fazer isso automaticamente, use um dos scripts ou o Docker.</p>
     </div>
   </div>
 </template>
