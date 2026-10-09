@@ -24,7 +24,7 @@ watch(() => props.open, syncDialog, { flush: 'post' })
 </script>
 
 <template>
-  <dialog ref="dialog" class="modal" :aria-labelledby="titleId" :aria-busy="busy" @cancel.prevent="close">
+  <dialog ref="dialog" class="modal" :aria-labelledby="titleId" :aria-hidden="!open" :aria-busy="busy" @cancel.prevent="close">
     <div class="modal-box">
       <h3 :id="titleId" class="font-display text-lg font-bold">{{ title }}</h3>
       <div class="py-3 text-base-content/80"><slot /></div>

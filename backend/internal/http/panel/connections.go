@@ -128,3 +128,87 @@ func (c *ConnectionsAPI) Test(w http.ResponseWriter, r *http.Request) {
 	_, _ = c.DB.ExecContext(r.Context(), `UPDATE connections SET status='valid', zones_json=?, last_error=NULL, last_checked_at=? WHERE id=?`, string(zj), now, id)
 	writeJSON(w, http.StatusOK, map[string]any{"status": "valid", "zones": zones})
 }
+
+func (c *ConnectionsAPI) Patch(w http.ResponseWriter, r *http.Request) {
+	actor, _ := auth.ActorFrom(r.Context())
+	id := chi.URLParam(r, "id")
+	var conn domain.Connection
+	if err := c.DB.GetContext(r.Context(), &conn, `SELECT * FROM connections WHERE id=?`, id); err != nil || auth.RequireOwner(actor, conn.OwnerID) != nil {
+		http.Error(w, "not found", http.StatusNotFound)
+		return
+	}
+	limitBody(w, r)
+	var body struct {
+		Name     *string `json:"name"`
+		APIToken *string `json:"api_token"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	var verr error
+	if body.Name != nil {
+		if conn.Name, verr = validate.Name("Nome", *body.Name); reject(w, verr) {
+			return
+		}
+	}
+	if body.APIToken != nil {
+		plain, err := validate.APIToken(*body.APIToken)
+		if reject(w, err) {
+			return
+		}
+		zones, err := c.Provider.ValidateCredentials(r.Context(), plain)
+		if err != nil {
+			http.Error(w, cloudflareMessage(err), http.StatusBadRequest)
+			return
+		}
+		var usedZones []string
+		if err := c.DB.SelectContext(r.Context(), &usedZones, `SELECT DISTINCT zone_id FROM hosts WHERE connection_id=?`, id); err != nil {
+			http.Error(w, "server error", http.StatusInternalServerError)
+			return
+		}
+		if !coversZones(zones, usedZones) {
+			http.Error(w, "O novo token precisa acessar todas as zonas dos hosts vinculados a esta conexão.", http.StatusBadRequest)
+			return
+		}
+		cipher, err := auth.Encrypt(c.EncKey, plain)
+		if err != nil {
+			http.Error(w, "server error", http.StatusInternalServerError)
+			return
+		}
+		zj, _ := json.Marshal(zones)
+		zs := string(zj)
+		conn.APITokenCipher, conn.APITokenSuffix, conn.ZonesJSON = cipher, auth.MaskSuffix(plain, 4), &zs
+		now := time.Now().UTC()
+		conn.Status, conn.LastCheckedAt, conn.LastError = "valid", &now, nil
+	}
+	var name *string
+	if body.Name != nil {
+		name = &conn.Name
+	}
+	var err error
+	if body.APIToken == nil {
+		_, err = c.DB.ExecContext(r.Context(), `UPDATE connections SET name=COALESCE(?,name), updated_at=? WHERE id=?`, name, time.Now().UTC(), id)
+	} else {
+		_, err = c.DB.ExecContext(r.Context(), `UPDATE connections SET name=COALESCE(?,name), api_token_ciphertext=?, api_token_suffix=?, zones_json=?, status=?, last_checked_at=?, last_error=?, updated_at=? WHERE id=?`, name, conn.APITokenCipher, conn.APITokenSuffix, conn.ZonesJSON, conn.Status, conn.LastCheckedAt, conn.LastError, time.Now().UTC(), id)
+	}
+	if err != nil {
+		http.Error(w, "server error", http.StatusInternalServerError)
+		return
+	}
+	_ = c.Audit.Write(r.Context(), audit.Entry{ActorID: &actor.ID, ActorRole: actor.Role, Action: "connection_update", ResourceType: "connection", ResourceID: id, ResourceOwnerID: &conn.OwnerID, IP: r.RemoteAddr, Summary: "connection updated"})
+	writeJSON(w, http.StatusOK, map[string]any{"id": id, "status": conn.Status, "api_token_suffix": conn.APITokenSuffix})
+}
+
+func coversZones(zones []dns.Zone, required []string) bool {
+	available := make(map[string]bool, len(zones))
+	for _, zone := range zones {
+		available[zone.ID] = true
+	}
+	for _, id := range required {
+		if !available[id] {
+			return false
+		}
+	}
+	return true
+}

@@ -21,9 +21,11 @@ DDNS self-hosted sobre a Cloudflare. Mantém um hostname (ex.: `casa.seudominio.
 
 - Painel em pt-BR, tema "terminal" (JetBrains Mono em itálico; escuro/claro), com conexões, hosts, tokens, histórico, alertas e auditoria.
 - Usuários por convite ou senha inicial (sem cadastro aberto), com edição de perfil, troca de senha e redefinição pelo admin.
-- Endpoints de atualização compatíveis com DuckDNS (`/update`) e DynDNS (`/nic/update`).
-- Clientes prontos na tela do token: **Script Linux** (com cron), **Docker** sem imagem própria, **Roteador (DynDNS)** e **Windows** (script `.ps1` já configurado, com tarefa agendada).
-- Alertas por e-mail (SMTP) e Telegram.
+- Endpoints de atualização compatíveis com DuckDNS (`/update`) e protocolo DDNS (`/nic/update`).
+- Clientes prontos nas abas da tela do token: **Script Linux** (com cron), **Docker** sem imagem própria, **Roteador (DDNS)**, **Windows** (script `.ps1` já configurado, com tarefa agendada) e **cURL** para atualização manual.
+- Canais de e-mail (SMTP) e Telegram com envio de teste. E-mails usam um [template HTML responsivo](backend/internal/alert/templates/email.html) com a identidade do HomeAlias e uma alternativa em texto simples. O envio automático por regras ainda está pendente; veja a [revisão de implementação](docs/IMPLEMENTATION_REVIEW.md).
+- Hosts com escolha de proxy Cloudflare ou só DNS, configuração de A/AAAA e TTL na criação e edição.
+- Edição de conexões com substituição do token Cloudflare e edição de hostname dentro da zona atual, mantendo os vínculos dos hosts e tokens DDNS.
 - Segredos protegidos: token da Cloudflare cifrado (AES-GCM); token DDNS guardado só como hash e exibido uma única vez.
 
 **Stack:** Go 1.23 (chi, sqlx) + MariaDB · Vue 3, Vite, TypeScript, Tailwind + DaisyUI · Docker Compose + Cloudflare Tunnel.
@@ -87,18 +89,24 @@ No painel, siga a ordem: **Conexões** → **Hosts** → **Tokens**.
 
 1. **Conexão:** cadastre o token da Cloudflare.
    Cloudflare → Meu perfil → Tokens de API → criar com **Zone · Zone · Read** e **Zone · DNS · Edit**, limitado às zonas necessárias. Cole apenas o token (não a Global API Key).
-2. **Host:** informe o hostname que será mantido atualizado.
+2. **Host:** informe o hostname e escolha A/AAAA, **Só DNS (sem proxy)** ou **Com proxy Cloudflare** e TTL. Com proxy, o TTL é automático. Depois, use **Editar DNS** para alterar essas opções. O registro novo é criado na primeira atualização DDNS; editar registros existentes mantém o conteúdo e aplica as opções escolhidas. Desativar um tipo interrompe suas atualizações, sem apagar o registro existente.
 3. **Token:** gere o token DDNS (exibido uma única vez) e escolha o cliente na própria tela.
 
 ## Atualizando o IP (clientes)
 
+Para trocar o token Cloudflare, abra **Conexões → Editar conexão**. Deixe o campo do token vazio para manter o atual ou cole o novo token para substituí-lo. A nova credencial é validada e precisa listar todas as zonas dos hosts vinculados; a validação não faz uma escrita DNS de teste. Mantenha as permissões **Zone · Zone · Read** e **Zone · DNS · Edit**. A conexão e os hosts mantêm seus IDs e vínculos.
+
+Para renomear, abra **Hosts → Editar DNS → Hostname** e informe o nome completo na mesma zona. O app rejeita nomes já cadastrados ou com A/AAAA/CNAME existente na Cloudflare. Quando há um IP conhecido ou um registro antigo, cria o novo DNS com esse conteúdo; caso contrário, aguarda a primeira atualização DDNS. O DNS antigo é preservado. Os tokens continuam válidos para o host, mas os clientes precisam usar o novo hostname. Edite os scripts/roteadores existentes; se perder o token, gere outro, pois o segredo não pode ser recuperado no painel.
+
 O IP vem do cabeçalho `CF-Connecting-IP`; parâmetros `ip=`/`myip=` são ignorados. Depois de gerar o token, o painel mostra cada cliente já preenchido para o seu host.
+
+Os comandos e scripts gerados seguem os registros habilitados: **A usa IPv4 (`-4`)**, **AAAA usa IPv6 (`-6`)** e um host com ambos faz duas chamadas separadas. A conexão IPv6 não revela o IPv4 público do cliente, nem o contrário. Se a rede não oferece uma família habilitada, o cliente informa a falha e ainda tenta a outra. Ao alterar os tipos de registro do host, gere novamente as instruções ou ajuste as opções dos scripts existentes.
 
 | Cliente | Como usar |
 |---|---|
-| **Script Linux** | Baixe `homealias-update.sh` e agende no cron (`*/5 * * * *`). Opcional: `HOMEALIAS_IPV6=1` para o registro AAAA. |
+| **Script Linux** | Baixe `homealias-update.sh` e agende no cron (`*/5 * * * *`). O arquivo vem com as famílias do host; `HOMEALIAS_IPV4` e `HOMEALIAS_IPV6` aceitam `0` ou `1` para ajuste manual. |
 | **Docker** | Container com `curlimages/curl` (abaixo), sem imagem própria. |
-| **Roteador (DynDNS)** | Servidor `SEU_HOST`, porta 443 com HTTPS, caminho `/nic/update`, usuário qualquer, senha = token. O painel lista cada campo com botão de copiar e exemplos para OpenWrt e EdgeOS. |
+| **Roteador (DDNS)** | Servidor `SEU_HOST`, porta 443 com HTTPS, caminho `/nic/update`, usuário qualquer, senha = token. O painel lista cada campo com botão de copiar e exemplos para OpenWrt e EdgeOS. |
 | **Windows** | Baixe `homealias-update.ps1` e rode `-Install` para criar a tarefa agendada ([`windows/README.md`](windows/README.md)). |
 | **cURL** | Chamada manual (abaixo). |
 
@@ -107,13 +115,13 @@ O IP vem do cabeçalho `CF-Connecting-IP`; parâmetros `ip=`/`myip=` são ignora
 ```bash
 docker run -d --name homealias-ddns --restart unless-stopped \
   -e HA_TOKEN=SEU_TOKEN curlimages/curl:latest \
-  sh -c 'while true; do curl -fsS -A homealias-docker/1.0 -H "Authorization: Bearer $HA_TOKEN" "https://SEU_HOST/update?hostname=casa.exemplo.com"; echo; sleep 300; done'
+  sh -c 'while true; do curl -4 --fail-with-body -sS --max-time 20 -A homealias-docker/1.0 -H "Authorization: Bearer $HA_TOKEN" "https://SEU_HOST/update?hostname=casa.exemplo.com"; echo; sleep 300; done'
 ```
 
 **cURL:**
 
 ```bash
-curl -fsS -H "Authorization: Bearer SEU_TOKEN" "https://SEU_HOST/update?hostname=casa.exemplo.com"
+curl -4 --fail-with-body -sS --max-time 20 -H "Authorization: Bearer SEU_TOKEN" "https://SEU_HOST/update?hostname=casa.exemplo.com"
 ```
 
 ## Configuração
@@ -188,3 +196,5 @@ docs/       Notas de robustez da interface
 ## Documentação
 
 - [`docs/HARDENING.md`](docs/HARDENING.md): robustez dos formulários e telas do painel.
+
+- [`docs/IMPLEMENTATION_REVIEW.md`](docs/IMPLEMENTATION_REVIEW.md): recursos verificados, correções e lacunas de implementação.

@@ -12,7 +12,7 @@ import FormModal from '../components/FormModal.vue'
 import PageHeader from '../components/PageHeader.vue'
 import * as v from '../composables/validation'
 
-type Host = { id: string; fqdn: string }
+type Host = { id: string; fqdn: string; enable_a: boolean; enable_aaaa: boolean }
 type Issued = { token: string; token_prefix: string; instructions: Record<string, string> }
 
 const route = useRoute()
@@ -27,7 +27,8 @@ const error = ref('')
 const showForm = ref(false)
 const attempted = ref(false)
 const errs = computed(() => ({ host: hosts.value.some((h) => h.id === hostId.value) ? '' : 'Escolha um host disponível.', name: v.name('Nome do token', name.value) }))
-const hostName = computed(() => hosts.value.find((h) => h.id === hostId.value)?.fqdn ?? '')
+const selectedHost = computed(() => hosts.value.find((h) => h.id === hostId.value))
+const hostName = computed(() => selectedHost.value?.fqdn ?? '')
 
 let reloading = false
 async function reload() {
@@ -108,7 +109,7 @@ function again() {
       <CodeBlock :code="issued.token" :mask="issued.token" :caption="`Token para ${hostName}`" />
       <div>
         <h2 class="font-display text-lg font-bold mb-3">Configure o cliente</h2>
-        <ClientInstructions :token="issued.token" :hostname="hostName" />
+        <ClientInstructions :token="issued.token" :hostname="hostName" :ipv4-enabled="selectedHost?.enable_a ?? true" :ipv6-enabled="selectedHost?.enable_aaaa ?? false" />
       </div>
       <div class="flex flex-wrap gap-2 pt-1">
         <RouterLink to="/" class="btn btn-primary">Ir para o painel</RouterLink>

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
-import { Cable, Plus, RefreshCw } from 'lucide-vue-next'
+import { Cable, Pencil, Plus, RefreshCw } from 'lucide-vue-next'
 import { api, errorMessage } from '../api/client'
 import LoadError from '../components/LoadError.vue'
 import EmptyState from '../components/EmptyState.vue'
@@ -34,7 +34,8 @@ const token = ref('')
 const busy = ref(false)
 const error = ref('')
 const attempted = ref(false)
-const errs = computed(() => ({ name: v.name('Nome', name.value), token: v.apiToken(token.value) }))
+const editingId = ref('')
+const errs = computed(() => ({ name: v.name('Nome', name.value), token: editingId.value && !token.value ? '' : v.apiToken(token.value) }))
 const testing = ref('')
 
 async function reload() {
@@ -54,11 +55,26 @@ async function reload() {
 onMounted(reload)
 
 function openForm() {
+  editingId.value = ''
   name.value = ''
   token.value = ''
   error.value = ''
   attempted.value = false
   showForm.value = true
+}
+
+function openEdit(c: Connection) {
+  editingId.value = c.id
+  name.value = c.name
+  token.value = ''
+  error.value = ''
+  attempted.value = false
+  showForm.value = true
+}
+
+function closeForm() {
+  showForm.value = false
+  token.value = ''
 }
 
 async function create() {
@@ -68,12 +84,12 @@ async function create() {
   if (errs.value.name || errs.value.token) return
   busy.value = true
   try {
-    await api('/api/connections', {
-      method: 'POST',
-      body: JSON.stringify({ name: name.value.trim(), api_token: v.normalizeApiToken(token.value), test: true }),
+    await api(editingId.value ? `/api/connections/${editingId.value}` : '/api/connections', {
+      method: editingId.value ? 'PATCH' : 'POST',
+      body: JSON.stringify({ name: name.value.trim(), ...(!editingId.value || token.value ? { api_token: v.normalizeApiToken(token.value) } : {}), test: true }),
     })
-    showForm.value = false
-    toast.success('Conexão validada e salva. O token não será exibido de novo.')
+    closeForm()
+    toast.success(editingId.value ? 'Conexão atualizada. Os hosts continuam vinculados.' : 'Conexão validada e salva. O token não será exibido de novo.')
     await reload()
   } catch (e) {
     error.value = errorMessage(e, 'A Cloudflare recusou o token.')
@@ -131,6 +147,7 @@ async function retest(c: Connection) {
                 <p v-if="c.last_error" class="mt-1 text-sm text-error">{{ c.last_error }}</p>
               </div>
               <StatusBadge :status="c.status" />
+              <button type="button" class="btn btn-sm btn-ghost gap-1.5" @click="openEdit(c)"><Pencil :size="14" aria-hidden="true" />Editar conexão</button>
               <button type="button" class="btn btn-sm btn-ghost gap-1.5" :disabled="testing === c.id" @click="retest(c)">
                 <RefreshCw :size="14" :class="{ 'animate-spin': testing === c.id }" aria-hidden="true" />Testar
               </button>
@@ -146,14 +163,14 @@ async function retest(c: Connection) {
 
     <FormModal
       :open="showForm"
-      title="Nova conexão"
-      description="O token é validado na Cloudflare antes de ser salvo e nunca é exibido de novo."
+      :title="editingId ? 'Editar conexão' : 'Nova conexão'"
+      :description="editingId ? 'Deixe o token vazio para manter o atual. Um novo token será validado antes da substituição.' : 'O token é validado na Cloudflare antes de ser salvo e nunca é exibido de novo.'"
       submit-label="Validar e salvar"
       busy-label="Validando…"
       :busy="busy"
       :error="error"
       @submit="create"
-      @cancel="showForm = false"
+      @cancel="closeForm"
     >
       <FormField v-slot="{ id, describedBy, invalid }" label="Nome" hint="Só para você identificar." :error="attempted ? errs.name : ''">
         <input
@@ -171,7 +188,7 @@ async function retest(c: Connection) {
       <FormField
         v-slot="{ id, describedBy, invalid }"
         label="Token de API da Cloudflare"
-        hint="Crie em Cloudflare → Meu perfil → Tokens de API, com a permissão Zone · DNS · Edit."
+        :hint="editingId ? 'Cole o novo token para substituir o atual. Ele precisa acessar as zonas dos hosts vinculados, com Zone · Zone · Read e Zone · DNS · Edit.' : 'Crie em Cloudflare → Meu perfil → Tokens de API, com Zone · Zone · Read e Zone · DNS · Edit.'"
         :error="attempted ? errs.token : ''"
       >
         <input
@@ -183,7 +200,7 @@ async function retest(c: Connection) {
           maxlength="256"
           autocomplete="off"
           spellcheck="false"
-          required
+          :required="!editingId"
           :aria-invalid="invalid"
           :aria-describedby="describedBy"
         />

@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/homealias/homealias/backend/internal/auth"
-	cf "github.com/homealias/homealias/backend/internal/dns/cloudflare"
 	"github.com/homealias/homealias/backend/internal/dns"
+	cf "github.com/homealias/homealias/backend/internal/dns/cloudflare"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -28,20 +28,22 @@ type UpdateRequest struct {
 }
 
 type UpdateResult struct {
-	Success   bool       `json:"success"`
-	Hostname  string     `json:"hostname,omitempty"`
-	IPv4      *string    `json:"ipv4,omitempty"`
-	IPv6      *string    `json:"ipv6,omitempty"`
-	Changed   bool       `json:"changed"`
-	UpdatedAt time.Time  `json:"updated_at"`
-	Code      string     `json:"code,omitempty"`
-	Message   string     `json:"message,omitempty"`
-	DynText   string     `json:"-"`
+	Success            bool      `json:"success"`
+	Hostname           string    `json:"hostname,omitempty"`
+	IPv4               *string   `json:"ipv4,omitempty"`
+	IPv6               *string   `json:"ipv6,omitempty"`
+	Changed            bool      `json:"changed"`
+	UpdatedAt          time.Time `json:"updated_at"`
+	Code               string    `json:"code,omitempty"`
+	Message            string    `json:"message,omitempty"`
+	DynText            string    `json:"-"`
+	DetectedIPFamily   string    `json:"detected_ip_family,omitempty"`
+	RequiredIPFamilies []string  `json:"required_ip_families,omitempty"`
 }
 
 func (s *UpdateService) Handle(ctx context.Context, req UpdateRequest) UpdateResult {
 	now := time.Now().UTC()
-	if req.ClientIP == nil {
+	if req.ClientIP.To16() == nil {
 		return rejected("unauthorized", "missing client ip", "badauth", now)
 	}
 	family := "v4"
@@ -110,13 +112,9 @@ func (s *UpdateService) Handle(ctx context.Context, req UpdateRequest) UpdateRes
 		return rejected("bad_request", "hostname required", "nohost", now)
 	}
 
-	if rrType == "A" && !host.EnableA {
+	if mismatch := ipFamilyMismatch(host, req.ClientIP, now); mismatch != nil {
 		_ = s.writeEvent(ctx, &host.ID, &tok.ID, &tok.OwnerID, req.ClientType, family, &ipStr, nil, false, "rejected", strPtr("type not enabled"))
-		return rejected("bad_request", "type not enabled", "911", now)
-	}
-	if rrType == "AAAA" && !host.EnableAAAA {
-		_ = s.writeEvent(ctx, &host.ID, &tok.ID, &tok.OwnerID, req.ClientType, family, &ipStr, nil, false, "rejected", strPtr("type not enabled"))
-		return rejected("bad_request", "type not enabled", "911", now)
+		return *mismatch
 	}
 
 	tx, err := s.DB.BeginTxx(ctx, nil)
@@ -213,6 +211,31 @@ func (s *UpdateService) writeEvent(ctx context.Context, hostID, tokenID, ownerID
 
 func rejected(code, msg, dyn string, now time.Time) UpdateResult {
 	return UpdateResult{Success: false, Code: code, Message: msg, DynText: dyn, UpdatedAt: now}
+}
+
+// O IP da conexao so pode atualizar um registro da mesma familia. Nao ha
+// conversao automatica entre o IPv4 publico e o IPv6 de um cliente.
+func ipFamilyMismatch(host Host, ip net.IP, now time.Time) *UpdateResult {
+	if (ip.To4() != nil && host.EnableA) || (ip.To4() == nil && host.EnableAAAA) {
+		return nil
+	}
+	message := "Este host nao possui registros A ou AAAA habilitados."
+	required := []string{}
+	if host.EnableA {
+		message = "Este host aceita IPv4 (A). Use uma conexao IPv4, por exemplo curl -4."
+		required = append(required, "ipv4")
+	}
+	if host.EnableAAAA {
+		message = "Este host aceita IPv6 (AAAA). Use uma conexao IPv6, por exemplo curl -6."
+		required = append(required, "ipv6")
+	}
+	res := rejected("bad_request", message, "911", now)
+	res.DetectedIPFamily = "ipv6"
+	if ip.To4() != nil {
+		res.DetectedIPFamily = "ipv4"
+	}
+	res.RequiredIPFamilies = required
+	return &res
 }
 
 func strPtr(s string) *string { return &s }

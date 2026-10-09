@@ -23,6 +23,7 @@ import {
 import { errorMessage } from '../api/client'
 import { useToast } from '../composables/useToast'
 import BrandMark from './BrandMark.vue'
+import AppFooter from './AppFooter.vue'
 import { useAuth } from '../composables/useAuth'
 import { useTheme } from '../composables/useTheme'
 
@@ -114,15 +115,15 @@ const linkOff = 'hover:bg-base-200'
 </script>
 
 <template>
-  <div class="min-h-screen">
+  <div class="flex min-h-dvh flex-col">
     <header class="app-header sticky top-0 z-40 border-b border-base-300 bg-base-100/95 backdrop-blur">
-      <div class="mx-auto flex h-14 w-full max-w-7xl items-center gap-3 px-4 sm:px-8">
+      <div class="mx-auto flex min-h-14 w-full max-w-7xl items-center gap-3 px-4 py-1 sm:px-8">
         <RouterLink to="/" class="flex shrink-0 items-center gap-2.5 xl:mr-2 xl:border-r xl:border-base-300 xl:pr-4" aria-label="HomeAlias, ir para o painel">
           <BrandMark :size="24" />
           <span class="font-display text-base font-bold tracking-tight">HomeAlias</span>
         </RouterLink>
 
-        <nav class="desktop-navigation hidden min-w-0 flex-1 flex-nowrap items-center gap-0.5 xl:flex" aria-label="Principal">
+        <nav class="desktop-navigation hidden min-w-0 flex-1 flex-wrap items-center gap-0.5 xl:flex" aria-label="Principal">
           <RouterLink
             v-for="i in main"
             :key="i.to"
@@ -164,7 +165,7 @@ const linkOff = 'hover:bg-base-200'
               aria-haspopup="menu"
               :aria-expanded="menu === 'user'"
               aria-controls="user-menu"
-              :aria-label="`Menu de ${user?.name || user?.email}`"
+              :aria-label="`Menu de ${user?.name || user?.email || 'usuário'}`"
               @click="toggleMenu('user')"
             >
               <span class="grid size-8 shrink-0 place-items-center rounded-full bg-primary text-sm font-bold text-primary-content" aria-hidden="true">
@@ -173,7 +174,7 @@ const linkOff = 'hover:bg-base-200'
               <ChevronDown :size="14" class="hidden text-base-content/60 sm:block" aria-hidden="true" />
             </button>
             <Transition name="pop">
-              <div v-if="menu === 'user'" id="user-menu" role="menu" aria-label="Menu do usuário" class="absolute right-0 top-full mt-2 w-64 rounded-box border border-base-300 bg-base-100 p-1.5 shadow-lg">
+              <div v-if="menu === 'user'" id="user-menu" role="menu" aria-label="Menu do usuário" class="absolute right-0 top-full mt-2 w-64 max-w-[calc(100vw-2rem)] rounded-box border border-base-300 bg-base-100 p-1.5 shadow-lg">
                 <div class="border-b border-base-300 px-3 pb-2.5 pt-2">
                   <p class="truncate text-sm font-semibold" :title="user?.name || user?.email">{{ user?.name || user?.email }}</p>
                   <p class="truncate text-xs text-base-content/65" :title="user?.email">{{ isAdmin ? 'Administrador' : 'Usuário' }} · {{ user?.email }}</p>
@@ -230,12 +231,13 @@ const linkOff = 'hover:bg-base-200'
       </Transition>
     </header>
 
-    <main id="conteudo" class="mx-auto w-full max-w-6xl px-4 py-6 sm:px-8 sm:py-10">
+    <main id="conteudo" class="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-8 sm:py-10">
       <RouterView v-slot="{ Component }">
         <Transition name="page" mode="out-in">
           <component :is="Component" :key="route.path" />
         </Transition>
       </RouterView>
     </main>
+    <AppFooter />
   </div>
 </template>

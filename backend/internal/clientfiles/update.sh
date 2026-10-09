@@ -6,7 +6,7 @@
 #   HOMEALIAS_URL=https://ddns.exemplo.com HOMEALIAS_TOKEN=... HOMEALIAS_HOSTNAME=casa.exemplo.com ./homealias-update.sh
 #
 # Opcoes (variaveis de ambiente):
-#   HOMEALIAS_IPV6=1   tambem atualiza o registro AAAA (requer IPv6 na rede)
+#   HOMEALIAS_IPV4=1 / HOMEALIAS_IPV6=1   habilitam as familias de IP do host
 #
 # Agende com o cron (a cada 5 minutos):
 #   */5 * * * * /caminho/homealias-update.sh >/dev/null 2>&1
@@ -14,7 +14,15 @@
 HA_URL="${HOMEALIAS_URL:-__HOMEALIAS_URL__}"
 HA_TOKEN="${HOMEALIAS_TOKEN:-__HOMEALIAS_TOKEN__}"
 HA_HOST="${HOMEALIAS_HOSTNAME:-__HOMEALIAS_HOSTNAME__}"
-HA_IPV6="${HOMEALIAS_IPV6:-0}"
+HA_IPV4="${HOMEALIAS_IPV4:-__HOMEALIAS_IPV4__}"
+HA_IPV6="${HOMEALIAS_IPV6:-__HOMEALIAS_IPV6__}"
+# Modelos baixados diretamente, sem configurar pelo painel, usam IPv4 por padrao.
+case "$HA_IPV4" in __*) HA_IPV4=1 ;; esac
+case "$HA_IPV6" in __*) HA_IPV6=0 ;; esac
+case "$HA_IPV4:$HA_IPV6" in
+  1:0|0:1|1:1) ;;
+  *) echo "homealias: habilite IPv4 e/ou IPv6 com valores 0 ou 1." >&2; exit 2 ;;
+esac
 
 for v in "$HA_URL" "$HA_TOKEN" "$HA_HOST"; do
   case "$v" in
@@ -41,11 +49,13 @@ update() { # $1 = -4 ou -6
   fi
 }
 
-update -4
-rc=$?
-echo
+rc=0
+if [ "$HA_IPV4" = "1" ]; then
+  update -4 || { echo "homealias: falha ao atualizar IPv4 (A)." >&2; rc=1; }
+  echo
+fi
 if [ "$HA_IPV6" = "1" ]; then
-  update -6 || echo "homealias: IPv6 indisponivel nesta rede (ignorado)." >&2
+  update -6 || { echo "homealias: falha ao atualizar IPv6 (AAAA). Verifique se esta rede possui IPv6." >&2; rc=1; }
   echo
 fi
 exit $rc

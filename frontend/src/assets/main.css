@@ -210,7 +210,7 @@
 }
 
 @layer base {
-  body { min-width: 320px; }
+  body { min-width: 0; }
   p, dd, h1, h2, h3 { overflow-wrap: anywhere; }
   input, select, textarea { min-width: 0; }
 }

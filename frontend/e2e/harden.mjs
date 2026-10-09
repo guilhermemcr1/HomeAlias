@@ -35,10 +35,13 @@ for (const width of (process.env.E2E_WIDTHS ? process.env.E2E_WIDTHS.split(',').
  for (const path of routes) {
   await page.goto(base + path); await page.waitForLoadState('networkidle')
   await check(errors.length === 0, errors.join(', '))
+  const content = await page.locator('body').innerText()
+  if (content.includes('undefined')) console.error(content)
+  await check(!content.includes('undefined'), `Missing data has a readable fallback: ${path} @ ${width}`)
   if (path === '/tokens') {
     if (await page.locator('dialog[open]').count()) await page.getByRole('button', { name: 'Cancelar', exact: true }).click()
   }
-  const fits = await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)
+  const fits = await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)
   if (!fits) {
     console.log(await page.locator('body').evaluate(el => [...el.querySelectorAll('*')].map(e => ({ tag: e.tagName, cls: e.className?.toString(), right: e.getBoundingClientRect().right, text: e.textContent?.slice(0, 50) })).filter(e => e.right > innerWidth + 1).slice(0, 20)))
     await page.screenshot({ path: '/tmp/homealias-overflow.png', fullPage: true })

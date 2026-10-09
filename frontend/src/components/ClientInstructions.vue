@@ -6,15 +6,16 @@ import FieldCopy from './FieldCopy.vue'
 import * as snip from '../composables/clientSnippets'
 import LoadError from './LoadError.vue'
 
-const props = defineProps<{ token: string; hostname: string }>()
+const props = defineProps<{ token: string; hostname: string; ipv4Enabled: boolean; ipv6Enabled: boolean }>()
 
-const cfg = computed<snip.ClientConfig>(() => ({ origin: window.location.origin, hostname: props.hostname, token: props.token }))
+const cfg = computed<snip.ClientConfig>(() => ({ origin: window.location.origin, hostname: props.hostname, token: props.token, enableA: props.ipv4Enabled, enableAAAA: props.ipv6Enabled }))
 
 const tabs = [
   { key: 'shell', label: 'Script Linux', icon: Terminal },
   { key: 'docker', label: 'Docker', icon: Container },
-  { key: 'router', label: 'Roteador (DynDNS)', icon: Router },
+  { key: 'router', label: 'Roteador (DDNS)', icon: Router },
   { key: 'windows', label: 'Windows', icon: Monitor },
+  { key: 'curl', label: 'cURL', icon: Terminal },
 ] as const
 type Tab = (typeof tabs)[number]['key']
 const active = ref<Tab>('shell')
@@ -77,6 +78,10 @@ watch(
 
 <template>
   <div class="space-y-4">
+    <p class="text-sm text-base-content/80">
+      Atualização automática: {{ props.ipv4Enabled && props.ipv6Enabled ? 'IPv4 (A) e IPv6 (AAAA), em chamadas separadas.' : props.ipv4Enabled ? 'IPv4 (A).' : 'IPv6 (AAAA).' }}
+      A rede do cliente precisa oferecer cada tipo de conexão habilitado.
+    </p>
     <div class="overflow-x-auto pb-1">
       <div role="tablist" aria-label="Tipo de cliente" class="inline-flex min-w-full gap-1 rounded-box bg-base-200 p-1 sm:min-w-0">
         <button
@@ -113,10 +118,6 @@ watch(
         <li>Teste agora:<CodeBlock class="mt-2" code="chmod 700 homealias-update.sh && ./homealias-update.sh" caption="Terminal" /></li>
         <li>Agende a cada 5 minutos (<code class="font-data">crontab -e</code>):<CodeBlock class="mt-2" :code="snip.cronLine()" caption="crontab" /></li>
       </ol>
-      <details class="rounded-btn border border-base-300 p-3">
-        <summary class="cursor-pointer font-medium">Sem baixar nada: um único comando</summary>
-        <CodeBlock class="mt-3" :code="snip.curlCommand(cfg)" :mask="props.token" caption="cURL" />
-      </details>
     </div>
 
     <!-- Docker -->
@@ -133,7 +134,7 @@ watch(
     <!-- Roteador -->
     <div v-else-if="active === 'router'" id="panel-router" role="tabpanel" aria-labelledby="tab-router" class="space-y-4">
       <p class="text-base-content/80">
-        No roteador ou firewall, procure por DDNS / DynDNS / "serviço personalizado" e preencha os campos abaixo. O IP é detectado pelo
+        No roteador ou firewall, procure por DDNS / "serviço personalizado" e preencha os campos abaixo. O IP é detectado pelo
         servidor, então o roteador não precisa informá-lo.
       </p>
       <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -155,7 +156,7 @@ watch(
     </div>
 
     <!-- Windows -->
-    <div v-else id="panel-windows" role="tabpanel" aria-labelledby="tab-windows" class="space-y-4">
+    <div v-else-if="active === 'windows'" id="panel-windows" role="tabpanel" aria-labelledby="tab-windows" class="space-y-4">
       <p class="text-base-content/80">Um arquivo só: ele já vem configurado e cria a tarefa agendada sozinho.</p>
       <ol class="list-decimal space-y-3 pl-5 marker:font-semibold">
         <li>
@@ -168,6 +169,13 @@ watch(
         <li>No PowerShell, na pasta do arquivo, crie a tarefa (roda a cada 5 minutos e já atualiza agora):<CodeBlock class="mt-2" :code="snip.windowsInstall()" caption="PowerShell" /></li>
         <li>Para remover depois: <code class="font-data">.\homealias-update.ps1 -Uninstall</code></li>
       </ol>
+    </div>
+
+    <!-- cURL -->
+    <div v-else-if="active === 'curl'" id="panel-curl" role="tabpanel" aria-labelledby="tab-curl" class="space-y-4">
+      <p class="text-base-content/80">Execute no terminal para atualizar agora. Os comandos usam IPv4 ou IPv6 conforme os registros habilitados no host.</p>
+      <CodeBlock :code="snip.curlCommand(cfg)" :mask="props.token" caption="cURL" />
+      <p class="text-sm text-base-content/70">Cada execução faz uma atualização. Para atualizar periodicamente, use um dos scripts ou o cliente Docker.</p>
     </div>
   </div>
 </template>

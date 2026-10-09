@@ -18,7 +18,7 @@ for (const width of (process.env.E2E_WIDTHS ? process.env.E2E_WIDTHS.split(',').
    return route.fulfill({ status: 500, body: 'internal failure' })
   }
   const data = empty ? [] : ({
-   '/api/hosts': [{ id: 'h1', fqdn: 'casa.exemplo.com', status: 'online' }],
+   '/api/hosts': [{ id: 'h1', fqdn: 'casa.exemplo.com', status: 'online', enable_a: true, enable_aaaa: false }],
    '/api/connections': [{ id: 'c1', name: 'Cloudflare', zones: [{ id: 'z1', name: 'exemplo.com' }] }],
    '/api/users': [{ id: 'u1', name: 'Usuário', email: 'u@exemplo.com', role: 'user', status: 'active' }],
   }[path] ?? [])
@@ -60,7 +60,7 @@ for (const width of (process.env.E2E_WIDTHS ? process.env.E2E_WIDTHS.split(',').
  await page.getByRole('button', { name: 'Tentar novamente', exact: true }).click()
  await page.getByRole('button', { name: 'Baixar', exact: true }).first().waitFor()
  assert.equal(await page.getByRole('button', { name: 'Tentar novamente', exact: true }).count(), 0); checks++
- for (const tab of ['Script Linux', 'Docker', 'Roteador (DynDNS)', 'Windows']) {
+ for (const tab of ['Script Linux', 'Docker', 'Roteador (DDNS)', 'Windows', 'cURL']) {
   await page.getByRole('tab', { name: tab, exact: true }).click()
   await page.waitForLoadState('networkidle')
   if (tab === 'Windows') {
@@ -71,7 +71,7 @@ for (const width of (process.env.E2E_WIDTHS ? process.env.E2E_WIDTHS.split(',').
    assert.equal(await page.locator('#panel-windows').getByRole('button', { name: 'Tentar novamente', exact: true }).count(), 0)
    checks += 3
   }
-  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `Instructions overflow ${tab} @ ${width}`); checks++
+  assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1), `Instructions overflow ${tab} @ ${width}`); checks++
  }
  await page.screenshot({ path: `/tmp/homealias-token-${width}.png`, fullPage: true })
  // Theme parity and 200% text scaling in the form layout.
@@ -81,7 +81,7 @@ for (const width of (process.env.E2E_WIDTHS ? process.env.E2E_WIDTHS.split(',').
  await page.getByRole('button', { name: 'Alterar senha', exact: true }).first().click()
  await page.evaluate(() => { document.documentElement.style.fontSize = '200%' })
  assert.ok(await page.locator('dialog[open]').evaluate(el => el.scrollWidth <= el.clientWidth + 1), '200% form scaling'); checks++
- const zoomFits = await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)
+ const zoomFits = await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1)
  if (!zoomFits) { console.log(await page.locator('body').evaluate(el => [...el.querySelectorAll('*')].map(e => ({ tag: e.tagName, cls: e.className?.toString(), right: e.getBoundingClientRect().right, text: e.textContent?.slice(0, 30) })).filter(e => e.right > innerWidth + 1).slice(0, 15))); await page.screenshot({ path: '/tmp/homealias-zoom-overflow.png', fullPage: true }) }
  assert.ok(zoomFits, '200% page scaling'); checks++
  await page.screenshot({ path: `/tmp/homealias-zoom-${width}.png`, fullPage: true })

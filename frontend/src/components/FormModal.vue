@@ -47,7 +47,7 @@ function close() {
 </script>
 
 <template>
-  <dialog ref="dialog" class="modal modal-bottom sm:modal-middle" :aria-labelledby="titleId" @cancel.prevent="close">
+  <dialog ref="dialog" class="modal modal-bottom sm:modal-middle" :aria-labelledby="titleId" :aria-hidden="!open" @cancel.prevent="close">
     <div class="modal-box w-full max-w-lg">
       <div class="flex items-start justify-between gap-4">
         <div class="min-w-0">

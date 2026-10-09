@@ -16,7 +16,7 @@ describe('API resilience', () => {
     expect(init[1].credentials).toBe('include')
   })
   it('does not leak HTML errors or internal server details', async () => {
-    for (const status of [400, 500, 502, 503, 504]) {
+    for (const status of [400, 409, 500, 502, 503, 504]) {
       mockFetch(vi.fn(async () => new Response('<html>secret stack</html>', { status })))
       await expect(api('/api/test')).rejects.not.toThrow('secret')
     }
@@ -24,6 +24,12 @@ describe('API resilience', () => {
   it('retains plain validation messages', async () => {
     mockFetch(vi.fn(async () => new Response('Nome é obrigatório.', { status: 400 })))
     await expect(api('/api/test')).rejects.toThrow('Nome é obrigatório.')
+  })
+  it('explains conflicts without exposing structured proxy responses', async () => {
+    mockFetch(vi.fn(async () => new Response('O novo hostname já possui registros na Cloudflare.', { status: 409 })))
+    await expect(api('/api/test')).rejects.toThrow('O novo hostname já possui registros na Cloudflare.')
+    mockFetch(vi.fn(async () => new Response('{"internal":"secret"}', { status: 409 })))
+    await expect(api('/api/test')).rejects.not.toThrow('secret')
   })
   it('redirects expired sessions but respects public login requests', async () => {
     const redirect = vi.fn(); setUnauthorizedHandler(redirect)

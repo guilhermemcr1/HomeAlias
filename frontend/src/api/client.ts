@@ -47,7 +47,7 @@ export async function api<T>(path: string, init: ApiInit = {}): Promise<T> {
       if (res.status === 401 && !skipAuthRedirect) onUnauthorized()
       const body = (await res.text()).trim()
       // Only expose plain validation messages; proxy HTML and internals aren't useful UI errors.
-      const validation = res.status === 400 && body && body !== 'bad request' && !body.startsWith('<')
+      const validation = [400, 409].includes(res.status) && body && body.length <= 500 && body !== 'bad request' && !['<', '{', '['].some(prefix => body.startsWith(prefix))
       throw new ApiError(res.status, validation ? body : (FRIENDLY[res.status] ?? 'Não foi possível concluir a solicitação. Tente novamente.'))
     }
     if (res.status === 204) return undefined as T

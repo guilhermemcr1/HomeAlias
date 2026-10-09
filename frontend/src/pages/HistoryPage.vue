@@ -23,7 +23,7 @@ const clientLabel: Record<string, string> = {
   shell: 'Script Linux',
   docker: 'Docker',
   windows: 'Windows',
-  dyndns: 'Roteador (DynDNS)',
+  dyndns: 'Roteador (DDNS)',
   duckdns: 'cURL / DuckDNS',
   agent: 'Agent',
 }

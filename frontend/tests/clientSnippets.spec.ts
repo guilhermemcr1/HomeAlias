@@ -1,10 +1,50 @@
 import { describe, expect, it } from 'vitest'
-import { readFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { spawnSync } from 'node:child_process'
 import * as s from '../src/composables/clientSnippets'
 
 const c = { origin: 'https://ddns.exemplo.com', hostname: 'casa.exemplo.com', token: 'tok_ABC-123' }
 
 describe('clientSnippets', () => {
+  it.each([
+    { enableA: true, enableAAAA: false, expected: [4] },
+    { enableA: false, enableAAAA: true, expected: [6] },
+    { enableA: true, enableAAAA: true, expected: [4, 6] },
+  ])('gera chamadas apenas para as famílias habilitadas: $expected', ({ enableA, enableAAAA, expected }) => {
+    const config = { ...c, enableA, enableAAAA }
+    for (const command of [s.curlCommand(config), s.dockerRun(config), s.dockerCompose(config), s.routerTest(config)]) {
+      expect([...command.matchAll(/curl -(4|6)\b/g)].map(match => Number(match[1]))).toEqual(expected)
+    }
+    for (const kind of ['sh', 'ps1'] as const) {
+      const template = readFileSync(new URL(`../../backend/internal/clientfiles/update.${kind}`, import.meta.url), 'utf8')
+      const configured = s.configureScript(template, config)
+      expect(configured).not.toContain('__HOMEALIAS_')
+    }
+  })
+
+  it.each([
+    { enableA: true, enableAAAA: false, fail: '', expected: ['-4'], status: 0 },
+    { enableA: false, enableAAAA: true, fail: '', expected: ['-6'], status: 0 },
+    { enableA: true, enableAAAA: true, fail: '', expected: ['-4', '-6'], status: 0 },
+    { enableA: true, enableAAAA: true, fail: '-4', expected: ['-4', '-6'], status: 1 },
+    { enableA: true, enableAAAA: true, fail: '-6', expected: ['-4', '-6'], status: 1 },
+  ])('executa o script Linux sem rede e preserva falhas: $expected / $fail', ({ enableA, enableAAAA, fail, expected, status }) => {
+    const dir = mkdtempSync(join(tmpdir(), 'homealias-families-'))
+    try {
+      const template = readFileSync(new URL('../../backend/internal/clientfiles/update.sh', import.meta.url), 'utf8')
+      writeFileSync(join(dir, 'update.sh'), s.configureScript(template, { ...c, enableA, enableAAAA }))
+      writeFileSync(join(dir, 'curl'), '#!/bin/sh\n/bin/cat >/dev/null\nprintf "%s\\n" "$1" >> "$CALLS"\n[ "$1" != "$FAIL_FAMILY" ]\n', { mode: 0o700 })
+      const calls = join(dir, 'calls')
+      const result = spawnSync('/bin/sh', [join(dir, 'update.sh')], { env: { PATH: dir, CALLS: calls, FAIL_FAMILY: fail }, encoding: 'utf8', timeout: 3000 })
+      expect(result.status).toBe(status)
+      expect(readFileSync(calls, 'utf8').trim().split('\n')).toEqual(expected)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
   it('aceita os modelos reais, incluindo o comentário inicial do PowerShell', () => {
     for (const kind of ['sh', 'ps1'] as const) {
       const template = readFileSync(new URL(`../../backend/internal/clientfiles/update.${kind}`, import.meta.url), 'utf8')

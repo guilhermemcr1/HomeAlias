@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
-import { CircleCheck, Globe, KeyRound, OctagonX, Plus, RefreshCw, Trash2, TriangleAlert } from 'lucide-vue-next'
+import { CircleCheck, Globe, KeyRound, OctagonX, Pencil, Plus, RefreshCw, Trash2, TriangleAlert } from 'lucide-vue-next'
 import { ApiError, api, errorMessage } from '../api/client'
 import ConfirmDialog from '../components/ConfirmDialog.vue'
 import LoadError from '../components/LoadError.vue'
@@ -11,6 +11,7 @@ import FormModal from '../components/FormModal.vue'
 import PageHeader from '../components/PageHeader.vue'
 import SkeletonRows from '../components/SkeletonRows.vue'
 import StatusBadge from '../components/StatusBadge.vue'
+import HostDnsOptions from '../components/HostDnsOptions.vue'
 import { relativeTime } from '../composables/format'
 import { useToast } from '../composables/useToast'
 import * as v from '../composables/validation'
@@ -20,7 +21,12 @@ type Connection = { id: string; name: string; zones?: string | Zone[] | null }
 type Host = {
   id: string
   fqdn: string
+  zone_name: string
   status: string
+  enable_a: boolean
+  enable_aaaa: boolean
+  proxied: boolean
+  ttl: number
   last_ipv4?: string | null
   last_ipv6?: string | null
   last_seen_v4?: string | null
@@ -45,6 +51,8 @@ const form = ref({
   name: '',
   enable_a: true,
   enable_aaaa: false,
+  proxied: false,
+  ttl: 1,
   adopt_existing: false,
 })
 
@@ -147,6 +155,8 @@ function openForm() {
   error.value = ''
   attempted.value = false
   form.value.name = ''
+  form.value.proxied = false
+  form.value.ttl = 1
   check.value = null
   checkError.value = ''
   form.value.adopt_existing = false
@@ -166,7 +176,7 @@ async function create() {
   try {
     await api('/api/hosts', {
       method: 'POST',
-      body: JSON.stringify({ ...form.value, name: form.value.name.trim().toLowerCase(), zone_name: zone.value.name }),
+      body: JSON.stringify({ ...form.value, ttl: form.value.proxied ? 1 : form.value.ttl, name: form.value.name.trim().toLowerCase(), zone_name: zone.value.name }),
     })
     toast.success(`${preview.value} criado. Gere um token para começar a atualizar.`)
     showForm.value = false
@@ -218,6 +228,47 @@ async function confirmRemove() {
   }
 }
 
+const editing = ref<Host | null>(null)
+const editForm = ref({ enable_a: true, enable_aaaa: false, proxied: false, ttl: 1 })
+const editBusy = ref(false)
+const editError = ref('')
+const editAttempted = ref(false)
+const editHostname = ref('')
+const editName = computed(() => {
+  const hostname = editHostname.value.trim().toLowerCase()
+  const zoneName = editing.value?.zone_name ?? ''
+  return hostname === zoneName ? '@' : hostname.endsWith(`.${zoneName}`) ? hostname.slice(0, -(zoneName.length + 1)) : ''
+})
+const editHostnameError = computed(() => !editing.value?.zone_name ? 'Não foi possível identificar a zona. Recarregue a página.' : !editName.value ? `Informe um hostname da zona ${editing.value.zone_name}.` : v.hostName(editName.value) || v.fqdn(editName.value, editing.value.zone_name))
+const editRecordsError = computed(() => editForm.value.enable_a || editForm.value.enable_aaaa ? '' : 'Ative ao menos um tipo de registro (A ou AAAA).')
+
+function openEdit(h: Host) {
+  editForm.value = { enable_a: h.enable_a ?? true, enable_aaaa: h.enable_aaaa ?? false, proxied: h.proxied ?? false, ttl: h.ttl ?? 1 }
+  editError.value = ''
+  editAttempted.value = false
+  editing.value = h
+  editHostname.value = h.fqdn
+}
+
+async function saveEdit() {
+  if (!editing.value || editBusy.value) return
+  editAttempted.value = true
+  if (editRecordsError.value || editHostnameError.value) return
+  editBusy.value = true
+  editError.value = ''
+  try {
+    const renamed = editHostname.value.trim().toLowerCase() !== editing.value.fqdn
+    await api(`/api/hosts/${editing.value.id}`, { method: 'PATCH', body: JSON.stringify({ ...editForm.value, ...(renamed ? { name: editName.value } : {}), ttl: editForm.value.proxied ? 1 : editForm.value.ttl }) })
+    toast.success(renamed ? 'Hostname atualizado. O DNS antigo foi mantido; ajuste o hostname nos clientes.' : 'Configuração DNS atualizada. Ajuste os scripts se alterar A/AAAA.')
+    editing.value = null
+    await reload()
+  } catch (e) {
+    editError.value = errorMessage(e, 'Não foi possível atualizar o host.')
+  } finally {
+    editBusy.value = false
+  }
+}
+
 function lastSeen(h: Host) {
   const t = Math.max(h.last_seen_v4 ? +new Date(h.last_seen_v4) : 0, h.last_seen_v6 ? +new Date(h.last_seen_v6) : 0)
   return t ? new Date(t).toISOString() : null
@@ -260,9 +311,11 @@ function lastSeen(h: Host) {
                   <span class="font-data">{{ h.last_ipv4 || h.last_ipv6 || 'sem IP' }}</span>
                   · contato {{ relativeTime(lastSeen(h)) }}
                 </p>
+                <p class="text-sm text-base-content/65">{{ h.proxied ? 'Com proxy Cloudflare' : 'Só DNS (sem proxy)' }} · TTL {{ h.ttl === 1 ? 'automático' : Number.isInteger(h.ttl) && h.ttl > 1 ? `${h.ttl} s` : 'não informado' }}</p>
               </div>
               <StatusBadge :status="h.status" />
               <div class="flex flex-wrap gap-1">
+                <button type="button" class="btn btn-sm btn-ghost gap-1.5" @click="openEdit(h)"><Pencil :size="14" aria-hidden="true" />Editar DNS</button>
                 <RouterLink :to="{ path: '/tokens', query: { host: h.id } }" class="btn btn-sm btn-ghost gap-1.5"><KeyRound :size="14" aria-hidden="true" />Token</RouterLink>
                 <button type="button" class="btn btn-sm btn-ghost gap-1.5" :disabled="syncing === h.id" @click="sync(h)">
                   <RefreshCw :size="14" :class="{ 'animate-spin': syncing === h.id }" aria-hidden="true" />Sincronizar
@@ -320,12 +373,7 @@ function lastSeen(h: Host) {
           :aria-describedby="describedBy"
         />
       </FormField>
-      <fieldset class="flex flex-col gap-2">
-        <legend class="text-sm font-semibold mb-1.5">Registros e opções</legend>
-        <label class="flex items-center gap-3 min-h-8 cursor-pointer"><input v-model="form.enable_a" type="checkbox" class="checkbox checkbox-primary checkbox-sm" />IPv4 (registro A)</label>
-        <label class="flex items-center gap-3 min-h-8 cursor-pointer"><input v-model="form.enable_aaaa" type="checkbox" class="checkbox checkbox-primary checkbox-sm" />IPv6 (registro AAAA)</label>
-        <p v-if="attempted && errs.records" class="text-sm text-error" role="alert">{{ errs.records }}</p>
-      </fieldset>
+      <HostDnsOptions v-model:enable-ipv4="form.enable_a" v-model:enable-ipv6="form.enable_aaaa" v-model:proxied="form.proxied" v-model:ttl="form.ttl" :error="attempted ? errs.records : ''" />
 
       <p v-if="checking" class="flex items-center gap-2 text-sm text-base-content/70" role="status">
         <span class="loading loading-spinner loading-xs" />Verificando se {{ preview }} já existe…
@@ -362,9 +410,18 @@ function lastSeen(h: Host) {
       </div>
     </FormModal>
 
+    <FormModal :open="!!editing" title="Editar DNS" :description="editing?.fqdn ?? ''" submit-label="Salvar alterações" busy-label="Salvando…" :busy="editBusy" :error="editError" @submit="saveEdit" @cancel="editing = null">
+      <FormField v-slot="{ id, describedBy, invalid }" label="Hostname" :hint="`Nome completo dentro da zona ${editing?.zone_name ?? ''}. O registro DNS antigo será mantido.`" :error="editAttempted ? editHostnameError : ''">
+        <input :id="id" v-model="editHostname" type="text" class="input input-bordered w-full font-data" placeholder="Ex.: casa.seudominio.com" maxlength="253" autocomplete="off" autocapitalize="none" spellcheck="false" required :aria-invalid="invalid" :aria-describedby="describedBy" />
+      </FormField>
+      <p v-if="editing && editHostname.trim().toLowerCase() !== editing.fqdn" class="text-sm text-warning" role="status">Os tokens continuam vinculados a este host. Atualize o hostname nos scripts e roteadores; o nome antigo deixará de ser aceito nas atualizações DDNS.</p>
+      <HostDnsOptions v-model:enable-ipv4="editForm.enable_a" v-model:enable-ipv6="editForm.enable_aaaa" v-model:proxied="editForm.proxied" v-model:ttl="editForm.ttl" :error="editAttempted ? editRecordsError : ''" />
+      <p class="text-sm text-base-content/70">Desativar A ou AAAA interrompe as atualizações desse tipo e mantém o registro existente na Cloudflare. Se alterar os tipos, ajuste os scripts dos clientes.</p>
+    </FormModal>
+
     <ConfirmDialog
       :open="!!removing"
-      :title="`Remover ${removing?.fqdn}?`"
+      :title="removing ? `Remover ${removing.fqdn}?` : 'Remover host'"
       confirm-label="Remover host"
       danger
       :busy="removeBusy"

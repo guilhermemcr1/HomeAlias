@@ -114,7 +114,7 @@ func (a *AlertsAPI) TestChannel(w http.ResponseWriter, r *http.Request) {
 	case "telegram":
 		sendErr = a.Telegram.Send(ch.Destination, msg)
 	case "email":
-		sendErr = a.SMTP.Send(ch.Destination, "HomeAlias teste", msg)
+		sendErr = a.SMTP.Send(ch.Destination, "Teste do canal de e-mail", "Este é um teste de envio do HomeAlias.\n\nSe esta mensagem chegou até você, o envio para este endereço funcionou.\n\nVocê pode voltar à página Alertas para consultar o resultado do teste.")
 	default:
 		http.Error(w, "bad type", http.StatusBadRequest)
 		return

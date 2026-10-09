@@ -254,7 +254,7 @@ async function confirmDisable() {
 
     <FormModal
       :open="!!editing"
-      :title="`Editar ${editing?.name || editing?.email}`"
+      :title="editing ? `Editar ${editing.name || editing.email}` : 'Editar usuário'"
       description="Mudar e-mail ou perfil de acesso desconecta a pessoa."
       submit-label="Salvar"
       busy-label="Salvando…"
@@ -279,7 +279,7 @@ async function confirmDisable() {
 
     <FormModal
       :open="!!resetting"
-      :title="`Redefinir senha de ${resetting?.name || resetting?.email}`"
+      :title="resetting ? `Redefinir senha de ${resetting.name || resetting.email}` : 'Redefinir senha'"
       description="A pessoa será desconectada e entra com a nova senha. Combine um canal seguro para passá-la."
       submit-label="Redefinir senha"
       busy-label="Redefinindo…"
@@ -296,7 +296,7 @@ async function confirmDisable() {
       </FormField>
     </FormModal>
 
-    <ConfirmDialog :open="!!disabling" :title="`Desativar ${disabling?.email}?`" confirm-label="Desativar" danger :busy="statusBusy" @confirm="confirmDisable" @cancel="disabling = null">
+    <ConfirmDialog :open="!!disabling" :title="disabling ? `Desativar ${disabling.email}?` : 'Desativar usuário'" confirm-label="Desativar" danger :busy="statusBusy" @confirm="confirmDisable" @cancel="disabling = null">
       A pessoa perde o acesso ao painel. Os dados dela são mantidos.
     </ConfirmDialog>
   </div>
